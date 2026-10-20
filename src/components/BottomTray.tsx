@@ -5,9 +5,16 @@ import { JargonTooltip } from './JargonTooltip';
 interface BottomTrayProps {
   flightPlan: FlightPlan;
   onExport: () => void;
+  onUpdateProcedures: (updates: {
+    depRwyIdent?: string;
+    sidName?: string;
+    arrRwyIdent?: string;
+    starName?: string;
+    approachName?: string;
+  }) => void;
 }
 
-export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) => {
+export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, onUpdateProcedures }) => {
   const [activeTab, setActiveTab] = useState<'route' | 'runway' | 'profile' | 'export'>('route');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [selectedRwyType, setSelectedRwyType] = useState<'origin' | 'dest'>('dest');
@@ -35,14 +42,14 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                 setActiveTab('route');
                 setIsCollapsed(false);
               }}
-              className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'route'
                   ? 'active-tab font-semibold'
                   : 'text-on-surface-variant hover:text-white border-transparent hover:bg-white/[0.04]'
               }`}
             >
               <span className="material-symbols-outlined text-[15px]">route</span>
-              <span>Route &amp; Procedures</span>
+              <span>IFR Procedures &amp; Route</span>
             </button>
 
             <button
@@ -50,7 +57,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                 setActiveTab('runway');
                 setIsCollapsed(false);
               }}
-              className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'runway'
                   ? 'active-tab font-semibold'
                   : 'text-on-surface-variant hover:text-white border-transparent hover:bg-white/[0.04]'
@@ -65,7 +72,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                 setActiveTab('profile');
                 setIsCollapsed(false);
               }}
-              className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'profile'
                   ? 'active-tab font-semibold'
                   : 'text-on-surface-variant hover:text-white border-transparent hover:bg-white/[0.04]'
@@ -80,7 +87,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                 setActiveTab('export');
                 setIsCollapsed(false);
               }}
-              className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeTab === 'export'
                   ? 'active-tab font-semibold'
                   : 'text-on-surface-variant hover:text-white border-transparent hover:bg-white/[0.04]'
@@ -114,15 +121,15 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
 
         {/* Tab Panels Content Body */}
         {!isCollapsed && (
-          <div className="p-3.5 transition-all max-h-72 overflow-y-auto">
-            {/* PANEL 1: Route & Procedures */}
+          <div className="p-3.5 transition-all max-h-80 overflow-y-auto">
+            {/* PANEL 1: Route & Procedures with Live Selectors */}
             {activeTab === 'route' && (
               <div className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Departure Card */}
+                  {/* Departure Procedure Card */}
                   <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-col justify-between">
-                    <div className="flex items-start justify-between">
-                      <div>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="px-1.5 py-0.5 rounded bg-secondary/15 text-secondary text-[10px] font-mono font-bold">
                             DEP
@@ -131,28 +138,60 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                             {flightPlan.origin.icao} • {flightPlan.origin.name}
                           </span>
                         </div>
-                        <div className="text-xs font-mono text-outline mt-1">
-                          Elev {flightPlan.origin.elevation} FT • RWY {flightPlan.originRunway.ident}
+                        <JargonTooltip term="SID">
+                          <span className="text-[10px] font-mono text-secondary font-bold uppercase">
+                            Departure Phase
+                          </span>
+                        </JargonTooltip>
+                      </div>
+
+                      {/* Interactive Departure Runway & SID Selectors */}
+                      <div className="grid grid-cols-2 gap-2 mt-2 font-mono text-xs">
+                        <div>
+                          <label className="text-[10px] text-outline block mb-1">DEPARTURE RUNWAY</label>
+                          <select
+                            value={flightPlan.originRunway.ident}
+                            onChange={(e) => onUpdateProcedures({ depRwyIdent: e.target.value })}
+                            className="w-full px-2 py-1.5 rounded-lg bg-black/50 border border-white/10 text-white text-xs focus:outline-none focus:border-secondary cursor-pointer"
+                          >
+                            {flightPlan.origin.runways.map((r) => (
+                              <option key={r.ident} value={r.ident}>
+                                RWY {r.ident} ({r.lengthFt.toLocaleString()} ft)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-outline block mb-1">SELECT SID</label>
+                          <select
+                            value={flightPlan.sid}
+                            onChange={(e) => onUpdateProcedures({ sidName: e.target.value })}
+                            className="w-full px-2 py-1.5 rounded-lg bg-black/50 border border-white/10 text-secondary font-bold text-xs focus:outline-none focus:border-secondary cursor-pointer"
+                          >
+                            {flightPlan.availableSids.map((s) => (
+                              <option key={s.name} value={s.name}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
-                      <JargonTooltip term="SID">
-                        <span className="px-2 py-1 rounded-lg bg-white/[0.05] text-primary text-xs font-mono font-bold">
-                          {flightPlan.sid} ({flightPlan.originRunway.ident})
-                        </span>
-                      </JargonTooltip>
                     </div>
-                    <div className="mt-2.5 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-black/30 border border-white/[0.04] text-[11px] font-mono text-secondary">
-                      <span className="material-symbols-outlined text-[14px]">thunderstorm</span>
-                      <JargonTooltip term="METAR">
-                        <span className="truncate">METAR: 28014KT 10SM CLR 18/09 A2992 • VFR OK</span>
-                      </JargonTooltip>
+
+                    <div className="mt-2.5 flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-black/30 border border-white/[0.04] text-[11px] font-mono text-secondary">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                        <span>Active SID: <strong>{flightPlan.sid}</strong></span>
+                      </span>
+                      <span className="text-outline text-[10px]">RWY {flightPlan.originRunway.ident}</span>
                     </div>
                   </div>
 
-                  {/* Arrival Card */}
+                  {/* Arrival Procedure Card */}
                   <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-col justify-between">
-                    <div className="flex items-start justify-between">
-                      <div>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="px-1.5 py-0.5 rounded bg-tertiary/15 text-tertiary text-[10px] font-mono font-bold">
                             ARR
@@ -161,28 +200,55 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                             {flightPlan.destination.icao} • {flightPlan.destination.name}
                           </span>
                         </div>
-                        <div className="text-xs font-mono text-outline mt-1">
-                          Elev {flightPlan.destination.elevation} FT • RWY {flightPlan.destRunway.ident}
+                        <JargonTooltip term="STAR">
+                          <span className="text-[10px] font-mono text-tertiary font-bold uppercase">
+                            Arrival &amp; Approach
+                          </span>
+                        </JargonTooltip>
+                      </div>
+
+                      {/* Interactive STAR & Approach Selectors */}
+                      <div className="grid grid-cols-2 gap-2 mt-2 font-mono text-xs">
+                        <div>
+                          <label className="text-[10px] text-outline block mb-1">SELECT STAR</label>
+                          <select
+                            value={flightPlan.star}
+                            onChange={(e) => onUpdateProcedures({ starName: e.target.value })}
+                            className="w-full px-2 py-1.5 rounded-lg bg-black/50 border border-white/10 text-tertiary font-bold text-xs focus:outline-none focus:border-tertiary cursor-pointer"
+                          >
+                            {flightPlan.availableStars.map((s) => (
+                              <option key={s.name} value={s.name}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-outline block mb-1">APPROACH / ILS</label>
+                          <select
+                            value={flightPlan.approach}
+                            onChange={(e) => onUpdateProcedures({ approachName: e.target.value })}
+                            className="w-full px-2 py-1.5 rounded-lg bg-black/50 border border-white/10 text-[#e879f9] font-bold text-xs focus:outline-none focus:border-[#e879f9] cursor-pointer"
+                          >
+                            {flightPlan.availableApproaches.map((a) => (
+                              <option key={a.name} value={a.name}>
+                                {a.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <JargonTooltip term="STAR">
-                          <span className="px-2 py-1 rounded-lg bg-white/[0.05] text-tertiary text-xs font-mono font-bold">
-                            {flightPlan.star} ({flightPlan.destRunway.ident})
-                          </span>
-                        </JargonTooltip>
-                        <JargonTooltip term="ILS">
-                          <span className="text-[10px] font-mono text-primary font-bold">
-                            {flightPlan.approach}
-                          </span>
-                        </JargonTooltip>
-                      </div>
                     </div>
-                    <div className="mt-2.5 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-black/30 border border-white/[0.04] text-[11px] font-mono text-primary">
-                      <span className="material-symbols-outlined text-[14px]">cloud</span>
-                      <JargonTooltip term="METAR">
-                        <span className="truncate">METAR: 25008KT 10SM SCT025 21/14 A2994 • VFR OK</span>
-                      </JargonTooltip>
+
+                    <div className="mt-2.5 flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-black/30 border border-white/[0.04] text-[11px] font-mono text-tertiary">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#e879f9]" />
+                        <span className="text-white">Active Approach: <strong className="text-[#e879f9]">{flightPlan.approach}</strong></span>
+                      </span>
+                      <span className="text-primary text-[10px]">
+                        {flightPlan.destRunway.ils ? `ILS ${flightPlan.destRunway.ils.freq}` : 'VISUAL'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -192,39 +258,39 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                   <span className="text-[10px] text-outline shrink-0 uppercase tracking-widest font-bold pr-1">
                     LEGS:
                   </span>
-                  {flightPlan.waypoints.map((wp, idx) => (
-                    <React.Fragment key={wp.ident + idx}>
-                      {idx > 0 && <span className="text-outline text-xs">→</span>}
-                      <div
-                        className={`px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 shrink-0 ${
-                          wp.isTOC
-                            ? 'bg-primary/15 border-primary text-white shadow-[0_0_12px_rgba(76,215,246,0.25)]'
-                            : wp.isTOD
-                            ? 'bg-tertiary/15 border-tertiary text-tertiary'
-                            : idx === 0
-                            ? 'bg-secondary/15 border-secondary text-secondary'
-                            : 'bg-white/[0.04] border-white/[0.07] text-on-surface'
-                        }`}
-                      >
-                        <span className="font-bold">{wp.ident}</span>
-                        <span className="text-[10px] opacity-80">
-                          {idx === 0 || idx === flightPlan.waypoints.length - 1
-                            ? 'GND'
-                            : `FL${Math.round(wp.altFt / 100)}`}
-                        </span>
-                        {wp.isTOC && (
-                          <JargonTooltip term="TOC">
-                            <span className="text-[9px] font-bold text-primary bg-primary/20 px-1 rounded">TOC</span>
-                          </JargonTooltip>
-                        )}
-                        {wp.isTOD && (
-                          <JargonTooltip term="TOD">
-                            <span className="text-[9px] font-bold text-tertiary bg-tertiary/20 px-1 rounded">TOD</span>
-                          </JargonTooltip>
-                        )}
-                      </div>
-                    </React.Fragment>
-                  ))}
+                  {flightPlan.waypoints.map((wp, idx) => {
+                    const isSid = wp.phase === 'sid';
+                    const isStar = wp.phase === 'star';
+                    const isApp = wp.phase === 'approach';
+
+                    return (
+                      <React.Fragment key={wp.ident + idx}>
+                        {idx > 0 && <span className="text-outline text-xs">→</span>}
+                        <div
+                          className={`px-2 py-1 rounded-lg border flex items-center gap-1.5 shrink-0 ${
+                            isApp
+                              ? 'bg-[#e879f9]/15 border-[#e879f9] text-[#e879f9]'
+                              : isStar
+                              ? 'bg-tertiary/15 border-tertiary text-tertiary'
+                              : isSid
+                              ? 'bg-secondary/15 border-secondary text-secondary'
+                              : wp.isTOC
+                              ? 'bg-primary/20 border-primary text-white shadow-[0_0_12px_rgba(76,215,246,0.3)]'
+                              : 'bg-white/[0.04] border-white/[0.07] text-on-surface'
+                          }`}
+                        >
+                          <span className="font-bold">{wp.ident}</span>
+                          <span className="text-[10px] opacity-80">
+                            {idx === 0 || idx === flightPlan.waypoints.length - 1
+                              ? 'GND'
+                              : `FL${Math.round(wp.altFt / 100)}`}
+                          </span>
+                          {wp.isTOC && <span className="text-[8px] font-bold text-primary bg-primary/20 px-1 rounded">TOC</span>}
+                          {wp.isTOD && <span className="text-[8px] font-bold text-tertiary bg-tertiary/20 px-1 rounded">TOD</span>}
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -287,7 +353,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setSelectedRwyType('origin')}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                             selectedRwyType === 'origin'
                               ? 'bg-secondary/20 text-secondary border border-secondary/30'
                               : 'text-outline hover:text-white border border-transparent'
@@ -297,7 +363,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                         </button>
                         <button
                           onClick={() => setSelectedRwyType('dest')}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                             selectedRwyType === 'dest'
                               ? 'bg-tertiary/20 text-tertiary border border-tertiary/30'
                               : 'text-outline hover:text-white border border-transparent'
@@ -353,12 +419,12 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
               </div>
             )}
 
-            {/* PANEL 3: Vertical Profile Cross-Section (VSD from Design 2) */}
+            {/* PANEL 3: Vertical Profile Cross-Section (VSD) */}
             {activeTab === 'profile' && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-mono text-outline">
                   <span>
-                    VERTICAL SITUATION PROFILE (VSD): {flightPlan.origin.icao} → {flightPlan.destination.icao}
+                    VERTICAL PROFILE: {flightPlan.origin.icao} ({flightPlan.sid}) → {flightPlan.destination.icao} ({flightPlan.approach})
                   </span>
                   <span className="text-primary font-bold">CRUISE FL{flightPlan.cruisingAlt / 100}</span>
                 </div>
@@ -422,8 +488,8 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                     </text>
 
                     {/* Approach & Touchdown */}
-                    <text className="fill-secondary font-mono text-[8px]" x="730" y="88">
-                      RWY {flightPlan.destRunway.ident}
+                    <text className="fill-[#e879f9] font-mono text-[9px] font-bold" x="710" y="88">
+                      {flightPlan.approach}
                     </text>
                   </svg>
                 </div>
@@ -441,8 +507,8 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                     <div>
                       <h4 className="text-sm font-bold text-white">Direct MSFS 2024 Flight Plan File (.pln)</h4>
                       <p className="text-xs text-on-surface-variant font-mono">
-                        AceXML formatted with SIDs, STARs &amp; auto-tuning ILS frequency. Compatible with A320, 737, and
-                        all MSFS Garmin avionics.
+                        Includes SID: <strong>{flightPlan.sid}</strong>, STAR: <strong>{flightPlan.star}</strong>, and
+                        Approach: <strong>{flightPlan.approach}</strong> with auto-tuning NAV1 radio.
                       </p>
                     </div>
                   </div>
@@ -450,7 +516,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport }) 
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={handleCopyRoute}
-                      className="px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono text-white transition-all flex items-center gap-1.5 border border-white/[0.08]"
+                      className="px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-mono text-white transition-all flex items-center gap-1.5 border border-white/[0.08] cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[15px]">content_copy</span>
                       <span>{copied ? 'Copied!' : 'Copy Route'}</span>

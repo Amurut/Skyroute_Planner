@@ -38,6 +38,16 @@ export interface Waypoint {
   info?: string;
   isTOC?: boolean;
   isTOD?: boolean;
+  phase?: 'sid' | 'enroute' | 'star' | 'approach';
+}
+
+export interface ProcedureOption {
+  name: string;
+  type: 'SID' | 'STAR' | 'APPROACH';
+  runway?: string;
+  transitionFix?: string;
+  description: string;
+  waypoints: Omit<Waypoint, 'phase'>[];
 }
 
 export interface FlightPlan {
@@ -58,6 +68,9 @@ export interface FlightPlan {
   routeString: string;
   costIndex: number;
   blockFuelLbs: number;
+  availableSids: ProcedureOption[];
+  availableStars: ProcedureOption[];
+  availableApproaches: ProcedureOption[];
 }
 
 export interface AviationJargon {

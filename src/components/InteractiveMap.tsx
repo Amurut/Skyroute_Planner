@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Airport, FlightPlan } from '../types/aviation';
+import { Airport, FlightPlan, Waypoint } from '../types/aviation';
 import { GLOBAL_AIRPORTS } from '../data/airports';
 
 interface InteractiveMapProps {
@@ -34,6 +34,14 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
       base: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       maxZoom: 19,
     },
+  };
+
+  // Phase color definitions for real IFR visualization
+  const PHASE_COLORS: Record<NonNullable<Waypoint['phase']>, string> = {
+    sid: '#4edea3', // Green / Emerald
+    enroute: '#4cd7f6', // Cyan
+    star: '#ffb95f', // Amber / Gold
+    approach: '#e879f9', // Magenta / Purple
   };
 
   // Initialize Map
@@ -92,7 +100,6 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
       refLayerRef.current = null;
     }
 
-    // Re-attach route and airport layers on top
     if (routeLayerRef.current) {
       map.removeLayer(routeLayerRef.current);
       map.addLayer(routeLayerRef.current);
@@ -188,55 +195,75 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
       airportLayer.addLayer(marker);
     });
 
-    // 2. Draw Route Polyline
-    const latlngs: L.LatLngExpression[] = flightPlan.waypoints.map((w) => [w.lat, w.lon]);
+    // 2. Draw Multi-Phase Color-Coded Polylines (SID, Enroute, STAR, Approach)
+    const wps = flightPlan.waypoints;
+    for (let i = 0; i < wps.length - 1; i++) {
+      const from = wps[i];
+      const to = wps[i + 1];
+      const phase = to.phase || from.phase || 'enroute';
+      const color = PHASE_COLORS[phase] || '#4cd7f6';
 
-    // Outer glow polyline
-    const glowLine = L.polyline(latlngs, {
-      color: '#4cd7f6',
-      weight: 6,
-      opacity: 0.35,
-      lineCap: 'round',
-      lineJoin: 'round',
-    });
+      // Outer glow line
+      const glowSegment = L.polyline(
+        [
+          [from.lat, from.lon],
+          [to.lat, to.lon],
+        ],
+        {
+          color,
+          weight: 6,
+          opacity: 0.35,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }
+      );
 
-    // Inner crisp core polyline
-    const coreLine = L.polyline(latlngs, {
-      color: '#ffffff',
-      weight: 2,
-      opacity: 0.9,
-      dashArray: '6, 6',
-      lineCap: 'round',
-    });
+      // Inner crisp core line
+      const coreSegment = L.polyline(
+        [
+          [from.lat, from.lon],
+          [to.lat, to.lon],
+        ],
+        {
+          color: '#ffffff',
+          weight: 2,
+          opacity: 0.9,
+          dashArray: phase === 'approach' ? '3, 4' : phase === 'sid' ? '6, 4' : undefined,
+          lineCap: 'round',
+        }
+      );
 
-    routeLayer.addLayer(glowLine);
-    routeLayer.addLayer(coreLine);
+      routeLayer.addLayer(glowSegment);
+      routeLayer.addLayer(coreSegment);
+    }
 
     // 3. Draw Waypoint Markers along Route
-    flightPlan.waypoints.forEach((wp) => {
-      const isEndpoint = wp.type === 'Airport';
-      if (isEndpoint) return; // Handled by airport markers
+    wps.forEach((wp) => {
+      const isOrigin = wp.ident === flightPlan.origin.icao;
+      const isDest = wp.ident === flightPlan.destination.icao;
+      if (isOrigin || isDest) return; // Handled by airport markers
+
+      const color = PHASE_COLORS[wp.phase || 'enroute'] || '#4cd7f6';
 
       const wpIcon = L.divIcon({
         className: 'custom-wp-icon',
         html: `<div style="
-          width: 8px;
-          height: 8px;
-          background: ${wp.isTOC ? '#4edea3' : wp.isTOD ? '#ffb95f' : '#4cd7f6'};
+          width: ${wp.phase === 'approach' ? '10px' : '8px'};
+          height: ${wp.phase === 'approach' ? '10px' : '8px'};
+          background: ${color};
           transform: rotate(45deg);
           border: 1px solid #060910;
-          box-shadow: 0 0 6px ${wp.isTOC ? '#4edea3' : wp.isTOD ? '#ffb95f' : '#4cd7f6'};
+          box-shadow: 0 0 8px ${color};
         "></div>`,
-        iconSize: [8, 8],
-        iconAnchor: [4, 4],
+        iconSize: [10, 10],
+        iconAnchor: [5, 5],
       });
 
       const wpMarker = L.marker([wp.lat, wp.lon], { icon: wpIcon });
       wpMarker.bindTooltip(
         `<div style="font-family:monospace;font-size:10px;font-weight:bold;color:#f0f3ff;">
-          ${wp.ident} <span style="color:#4cd7f6;">FL${Math.round(wp.altFt / 100)}</span>
-          ${wp.isTOC ? '<span style="color:#4edea3;">[TOC]</span>' : ''}
-          ${wp.isTOD ? '<span style="color:#ffb95f;">[TOD]</span>' : ''}
+          <span style="color:${color};text-transform:uppercase;">[${wp.phase || 'FIX'}]</span> ${wp.ident} • FL${Math.round(wp.altFt / 100)}
+          ${wp.info ? `<div style="font-size:9px;color:#a2b0ba;font-weight:normal;">${wp.info}</div>` : ''}
         </div>`,
         { permanent: false, direction: 'top', className: 'dark-tooltip' }
       );
@@ -245,8 +272,9 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
     });
 
     // Fit map bounds smoothly
-    if (latlngs.length > 0) {
-      const bounds = L.latLngBounds(latlngs);
+    if (wps.length > 0) {
+      const allCoords = wps.map((w) => [w.lat, w.lon] as [number, number]);
+      const bounds = L.latLngBounds(allCoords);
       map.fitBounds(bounds, { padding: [120, 120], maxZoom: 8 });
     }
   }, [flightPlan, onSelectAirport]);
@@ -318,6 +346,27 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
           </button>
         </div>
 
+        {/* Flight Phase Color Legend */}
+        <div className="glass-island p-2 rounded-xl flex flex-col gap-1 w-36 shadow-xl text-[10px] font-mono">
+          <span className="text-outline uppercase tracking-wider text-[9px] font-bold px-1 mb-0.5">IFR Route Phases</span>
+          <div className="flex items-center gap-1.5 px-1 py-0.5 rounded bg-white/[0.02]">
+            <span className="w-2 h-2 rounded-full bg-[#4edea3]" />
+            <span className="text-secondary font-semibold">SID Departure</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-1 py-0.5 rounded bg-white/[0.02]">
+            <span className="w-2 h-2 rounded-full bg-[#4cd7f6]" />
+            <span className="text-primary font-semibold">Enroute Cruise</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-1 py-0.5 rounded bg-white/[0.02]">
+            <span className="w-2 h-2 rounded-full bg-[#ffb95f]" />
+            <span className="text-tertiary font-semibold">STAR Arrival</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-1 py-0.5 rounded bg-white/[0.02]">
+            <span className="w-2 h-2 rounded-full bg-[#e879f9]" />
+            <span className="text-[#e879f9] font-semibold">Approach / ILS</span>
+          </div>
+        </div>
+
         {/* Zoom Controls */}
         <div className="glass-island p-1 rounded-xl flex items-center justify-between w-36 shadow-xl">
           <button
@@ -344,11 +393,6 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
             <span className="material-symbols-outlined text-[16px]">my_location</span>
           </button>
         </div>
-
-        {/* Airport Click Hint */}
-        <div className="px-2.5 py-1.5 rounded-lg bg-black/60 border border-white/10 text-[10px] font-mono text-outline backdrop-blur">
-          <span>💡 Click any airport dot to inspect or route</span>
-        </div>
       </aside>
 
       {/* Top-Right Sleek Flight Telemetry HUD Widget */}
@@ -357,7 +401,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[0.07]">
             <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-outline">
               <span className="w-2 h-2 rounded-full bg-secondary animate-ping" />
-              <span className="text-white font-semibold">ENROUTE TOC</span>
+              <span className="text-white font-semibold">IFR PROCEDURES</span>
             </div>
             <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] font-mono text-primary font-bold">
               MSFS 2024
@@ -366,31 +410,29 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
 
           <div className="grid grid-cols-2 gap-2 text-xs font-mono">
             <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-              <span className="text-[10px] text-outline block mb-0.5">EST. TIME</span>
-              <span className="text-sm font-bold text-secondary font-mono">{flightPlan.eteMinutes} MIN</span>
+              <span className="text-[10px] text-outline block mb-0.5">SID DEPARTURE</span>
+              <span className="text-xs font-bold text-secondary font-mono truncate block">{flightPlan.sid}</span>
+            </div>
+            <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+              <span className="text-[10px] text-outline block mb-0.5">STAR ARRIVAL</span>
+              <span className="text-xs font-bold text-tertiary font-mono truncate block">{flightPlan.star}</span>
             </div>
             <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
               <span className="text-[10px] text-outline block mb-0.5">CRZ ALTITUDE</span>
               <span className="text-sm font-bold text-white font-mono">FL{flightPlan.cruisingAlt / 100}</span>
             </div>
             <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-              <span className="text-[10px] text-outline block mb-0.5">BLOCK FUEL</span>
-              <span className="text-sm font-bold text-tertiary font-mono">
-                {flightPlan.blockFuelLbs.toLocaleString()} <span className="text-[10px] font-normal text-outline">LBS</span>
-              </span>
-            </div>
-            <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-              <span className="text-[10px] text-outline block mb-0.5">AIRWAY FIXES</span>
-              <span className="text-sm font-bold text-primary font-mono">{flightPlan.waypoints.length} LEGS</span>
+              <span className="text-[10px] text-outline block mb-0.5">APPROACH</span>
+              <span className="text-xs font-bold text-[#e879f9] font-mono truncate block">{flightPlan.approach}</span>
             </div>
           </div>
 
           {/* Next Target Fix Highlight */}
           <div className="mt-2.5 p-2 rounded-xl bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 flex items-center justify-between">
             <div className="flex flex-col">
-              <span className="text-[10px] font-mono text-primary/80 uppercase font-semibold">Planned Arrival</span>
+              <span className="text-[10px] font-mono text-primary/80 uppercase font-semibold">Approach Target</span>
               <span className="text-xs font-mono font-bold text-white">
-                {flightPlan.destination.icao} • {flightPlan.approach}
+                {flightPlan.destRunway.ident} • {flightPlan.destRunway.ils?.freq ? `ILS ${flightPlan.destRunway.ils.freq} MHz` : 'VISUAL'}
               </span>
             </div>
             <div className="text-right font-mono text-xs">

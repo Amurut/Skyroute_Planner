@@ -36,6 +36,29 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleUpdateProcedures = async (updates: {
+    depRwyIdent?: string;
+    sidName?: string;
+    arrRwyIdent?: string;
+    starName?: string;
+    approachName?: string;
+  }) => {
+    if (!flightPlan) return;
+    const updatedPlan = await generateFlightPlan(
+      flightPlan.origin,
+      flightPlan.destination,
+      simbriefUsername,
+      {
+        depRwyIdent: updates.depRwyIdent || flightPlan.originRunway.ident,
+        sidName: updates.sidName || flightPlan.sid,
+        arrRwyIdent: updates.arrRwyIdent || flightPlan.destRunway.ident,
+        starName: updates.starName || flightPlan.star,
+        approachName: updates.approachName || flightPlan.approach,
+      }
+    );
+    setFlightPlan(updatedPlan);
+  };
+
   const handleExport = () => {
     if (!flightPlan) return;
     downloadPlnFile(flightPlan);
@@ -55,7 +78,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none bg-[#070a11] text-on-surface">
-      {/* Fullscreen Interactive Leaflet Map */}
+      {/* Fullscreen Interactive Leaflet Map with Phase Colors */}
       <InteractiveMap flightPlan={flightPlan} onSelectAirport={handleSelectAirport} />
 
       {/* Floating Glass Top Island */}
@@ -66,8 +89,12 @@ export const App: React.FC = () => {
         onExport={handleExport}
       />
 
-      {/* Bottom Collapsible Command Dock */}
-      <BottomTray flightPlan={flightPlan} onExport={handleExport} />
+      {/* Bottom Collapsible Command Dock with Procedure Selectors */}
+      <BottomTray
+        flightPlan={flightPlan}
+        onExport={handleExport}
+        onUpdateProcedures={handleUpdateProcedures}
+      />
 
       {/* Airport Search & Dispatch Modal */}
       <AirportSearchModal
