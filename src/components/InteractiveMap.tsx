@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { Airport, FlightPlan } from '../types/aviation';
 import { GLOBAL_AIRPORTS } from '../data/airports';
@@ -8,11 +8,33 @@ interface InteractiveMapProps {
   onSelectAirport: (apt: Airport, role: 'origin' | 'dest') => void;
 }
 
+type MapTheme = 'dark' | 'satellite' | 'osm';
+
 export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSelectAirport }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const refLayerRef = useRef<L.TileLayer | null>(null);
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
   const airportLayerRef = useRef<L.LayerGroup | null>(null);
+  const [activeTheme, setActiveTheme] = useState<MapTheme>('dark');
+
+  // Tile layer configurations (100% Free, NO API KEY required)
+  const TILE_SOURCES: Record<MapTheme, { base: string; ref?: string; maxZoom: number }> = {
+    dark: {
+      base: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+      ref: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+      maxZoom: 16,
+    },
+    satellite: {
+      base: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      maxZoom: 18,
+    },
+    osm: {
+      base: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      maxZoom: 19,
+    },
+  };
 
   // Initialize Map
   useEffect(() => {
@@ -25,15 +47,21 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
       attributionControl: false,
     });
 
-    // Dark Matter CartoDB tiles
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      subdomains: 'abcd',
+    // Default: Esri Dark Gray (No API key needed)
+    const baseTile = L.tileLayer(TILE_SOURCES.dark.base, {
+      maxZoom: TILE_SOURCES.dark.maxZoom,
+    }).addTo(map);
+
+    const refTile = L.tileLayer(TILE_SOURCES.dark.ref!, {
+      maxZoom: TILE_SOURCES.dark.maxZoom,
+      opacity: 0.8,
     }).addTo(map);
 
     const routeLayer = L.layerGroup().addTo(map);
     const airportLayer = L.layerGroup().addTo(map);
 
+    tileLayerRef.current = baseTile;
+    refLayerRef.current = refTile;
     routeLayerRef.current = routeLayer;
     airportLayerRef.current = airportLayer;
     mapInstanceRef.current = map;
@@ -43,6 +71,37 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
       mapInstanceRef.current = null;
     };
   }, []);
+
+  // Handle Theme Change
+  const switchTheme = (theme: MapTheme) => {
+    setActiveTheme(theme);
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (tileLayerRef.current) map.removeLayer(tileLayerRef.current);
+    if (refLayerRef.current) map.removeLayer(refLayerRef.current);
+
+    const conf = TILE_SOURCES[theme];
+    const newBase = L.tileLayer(conf.base, { maxZoom: conf.maxZoom }).addTo(map);
+    tileLayerRef.current = newBase;
+
+    if (conf.ref) {
+      const newRef = L.tileLayer(conf.ref, { maxZoom: conf.maxZoom, opacity: 0.8 }).addTo(map);
+      refLayerRef.current = newRef;
+    } else {
+      refLayerRef.current = null;
+    }
+
+    // Re-attach route and airport layers on top
+    if (routeLayerRef.current) {
+      map.removeLayer(routeLayerRef.current);
+      map.addLayer(routeLayerRef.current);
+    }
+    if (airportLayerRef.current) {
+      map.removeLayer(airportLayerRef.current);
+      map.addLayer(airportLayerRef.current);
+    }
+  };
 
   // Update Route Polyline and Waypoints when flight plan changes
   useEffect(() => {
@@ -210,12 +269,60 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
       {/* Real Interactive Leaflet Canvas */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full z-0 cursor-grab active:cursor-grabbing" />
 
-      {/* Top-Left Micro Controls */}
-      <aside className="fixed top-24 left-6 z-30 flex flex-col gap-1.5 pointer-events-auto">
+      {/* Top-Left Floating Map Controls & Theme Switcher */}
+      <aside className="fixed top-24 left-6 z-30 flex flex-col gap-2 pointer-events-auto">
+        {/* Layer Switcher */}
+        <div className="glass-island p-1 rounded-xl flex flex-col gap-1 w-36 shadow-xl">
+          <div className="px-2 py-1 flex items-center justify-between text-[10px] font-mono font-semibold text-outline uppercase tracking-wider">
+            <span>Layers</span>
+            <span className="material-symbols-outlined text-[13px]">layers</span>
+          </div>
+          <button
+            onClick={() => switchTheme('dark')}
+            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+              activeTheme === 'dark'
+                ? 'text-primary bg-primary/10 border border-primary/20 font-bold'
+                : 'text-outline hover:text-white hover:bg-white/[0.04]'
+            }`}
+          >
+            <span>Tactical Dark</span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${activeTheme === 'dark' ? 'bg-primary' : 'bg-outline/40'}`}
+            />
+          </button>
+          <button
+            onClick={() => switchTheme('satellite')}
+            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+              activeTheme === 'satellite'
+                ? 'text-secondary bg-secondary/10 border border-secondary/20 font-bold'
+                : 'text-outline hover:text-white hover:bg-white/[0.04]'
+            }`}
+          >
+            <span>Satellite</span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${activeTheme === 'satellite' ? 'bg-secondary' : 'bg-outline/40'}`}
+            />
+          </button>
+          <button
+            onClick={() => switchTheme('osm')}
+            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+              activeTheme === 'osm'
+                ? 'text-tertiary bg-tertiary/10 border border-tertiary/20 font-bold'
+                : 'text-outline hover:text-white hover:bg-white/[0.04]'
+            }`}
+          >
+            <span>OpenStreet</span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${activeTheme === 'osm' ? 'bg-tertiary' : 'bg-outline/40'}`}
+            />
+          </button>
+        </div>
+
+        {/* Zoom Controls */}
         <div className="glass-island p-1 rounded-xl flex items-center justify-between w-36 shadow-xl">
           <button
             onClick={() => handleZoom(1)}
-            className="w-7 h-7 rounded-lg hover:bg-white/[0.08] text-outline hover:text-white flex items-center justify-center transition-colors"
+            className="w-7 h-7 rounded-lg hover:bg-white/[0.08] text-outline hover:text-white flex items-center justify-center transition-colors cursor-pointer"
             title="Zoom In"
           >
             <span className="material-symbols-outlined text-[16px]">add</span>
@@ -223,7 +330,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
           <div className="w-px h-3.5 bg-white/10" />
           <button
             onClick={() => handleZoom(-1)}
-            className="w-7 h-7 rounded-lg hover:bg-white/[0.08] text-outline hover:text-white flex items-center justify-center transition-colors"
+            className="w-7 h-7 rounded-lg hover:bg-white/[0.08] text-outline hover:text-white flex items-center justify-center transition-colors cursor-pointer"
             title="Zoom Out"
           >
             <span className="material-symbols-outlined text-[16px]">remove</span>
@@ -231,7 +338,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
           <div className="w-px h-3.5 bg-white/10" />
           <button
             onClick={handleRecenter}
-            className="w-7 h-7 rounded-lg hover:bg-white/[0.08] text-primary flex items-center justify-center transition-colors"
+            className="w-7 h-7 rounded-lg hover:bg-white/[0.08] text-primary flex items-center justify-center transition-colors cursor-pointer"
             title="Fit Route to Viewport"
           >
             <span className="material-symbols-outlined text-[16px]">my_location</span>
@@ -244,7 +351,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
         </div>
       </aside>
 
-      {/* Top-Right Sleek Flight Telemetry HUD Widget from Design 1 */}
+      {/* Top-Right Sleek Flight Telemetry HUD Widget */}
       <aside className="fixed top-24 right-6 z-30 hidden md:flex flex-col gap-2 pointer-events-auto">
         <div className="glass-island p-3.5 rounded-2xl w-72 shadow-2xl">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[0.07]">
