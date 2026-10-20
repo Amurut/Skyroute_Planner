@@ -138,7 +138,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
                             {flightPlan.origin.icao} • {flightPlan.origin.name}
                           </span>
                         </div>
-                        <JargonTooltip term="SID">
+                        <JargonTooltip term="SID" align="right">
                           <span className="text-[10px] font-mono text-secondary font-bold uppercase">
                             Departure Phase
                           </span>
@@ -200,7 +200,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
                             {flightPlan.destination.icao} • {flightPlan.destination.name}
                           </span>
                         </div>
-                        <JargonTooltip term="STAR">
+                        <JargonTooltip term="STAR" align="right">
                           <span className="text-[10px] font-mono text-tertiary font-bold uppercase">
                             Arrival &amp; Approach
                           </span>
@@ -373,7 +373,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
                         </button>
                       </div>
 
-                      <JargonTooltip term="RUNWAY_HEADING">
+                      <JargonTooltip term="RUNWAY_HEADING" align="right">
                         <span className="font-mono text-sm font-bold text-white">
                           RWY {activeRunway.ident} ({activeRunway.heading}° M)
                         </span>
