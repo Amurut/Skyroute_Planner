@@ -32,9 +32,9 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[96%] max-w-5xl transition-all">
-      <div className="glass-island rounded-2xl shadow-2xl overflow-hidden border border-white/10 flex flex-col">
+      <div className="glass-island rounded-2xl shadow-2xl border border-white/10 flex flex-col relative">
         {/* Dock Navigation Tabs Bar */}
-        <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-white/[0.07] bg-black/20">
+        <div className="flex items-center justify-between px-3 pt-2.5 pb-2 border-b border-white/[0.07] bg-black/20 rounded-t-2xl">
           {/* Segmented Tab Triggers */}
           <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06] text-xs font-mono">
             <button
@@ -101,7 +101,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
           {/* Quick Info & Collapse */}
           <div className="flex items-center gap-2">
             <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-outline pr-2">
-              <JargonTooltip term="COST_INDEX">
+              <JargonTooltip term="COST_INDEX" align="right">
                 <span>CI: <strong className="text-white">{flightPlan.costIndex}</strong></span>
               </JargonTooltip>
               <span>• FUEL:</span>
@@ -121,7 +121,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
 
         {/* Tab Panels Content Body */}
         {!isCollapsed && (
-          <div className="p-3.5 transition-all max-h-80 overflow-y-auto">
+          <div className="p-3.5 transition-all max-h-80 overflow-y-auto rounded-b-2xl">
             {/* PANEL 1: Route & Procedures with Live Selectors */}
             {activeTab === 'route' && (
               <div className="space-y-3">
