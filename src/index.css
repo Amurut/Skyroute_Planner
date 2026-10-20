@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Glassmorphism Styles from Design 1 */
+.glass-island {
+  background: rgba(14, 18, 28, 0.82);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.75), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+.glass-card {
+  background: rgba(16, 21, 33, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.active-tab {
+  background: rgba(76, 215, 246, 0.12);
+  color: #4cd7f6;
+  border-color: rgba(76, 215, 246, 0.35);
+}
+
+/* Leaflet Dark Mode Customization */
+.leaflet-container {
+  background: #080c15 !important;
+  font-family: inherit;
+  width: 100%;
+  height: 100%;
+}
+
+.leaflet-popup-content-wrapper {
+  background: rgba(15, 20, 32, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  color: #f0f3ff !important;
+  border: 1px solid rgba(76, 215, 246, 0.3) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8), 0 0 15px rgba(76, 215, 246, 0.15) !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(15, 20, 32, 0.95) !important;
+  border: 1px solid rgba(76, 215, 246, 0.3) !important;
+}
+
+.leaflet-bar {
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+.leaflet-bar a {
+  background-color: rgba(15, 20, 32, 0.9) !important;
+  color: #a2b0ba !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: rgba(30, 38, 55, 0.9) !important;
+  color: #4cd7f6 !important;
+}
