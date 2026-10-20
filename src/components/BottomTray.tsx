@@ -419,82 +419,187 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
               </div>
             )}
 
-            {/* PANEL 3: Vertical Profile Cross-Section (VSD) */}
-            {activeTab === 'profile' && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-mono text-outline">
-                  <span>
-                    VERTICAL PROFILE: {flightPlan.origin.icao} ({flightPlan.sid}) → {flightPlan.destination.icao} ({flightPlan.approach})
-                  </span>
-                  <span className="text-primary font-bold">CRUISE FL{flightPlan.cruisingAlt / 100}</span>
+            {/* PANEL 3: Vertical Profile Cross-Section (VSD) with Real Waypoints & Elevations */}
+            {activeTab === 'profile' && (() => {
+              const waypoints = flightPlan.waypoints;
+              const crzAlt = Math.max(flightPlan.cruisingAlt, 10000);
+              const startX = 65;
+              const endX = 940;
+              const groundY = 142;
+              const topY = 28;
+
+              const points = waypoints.map((wp, idx) => {
+                const x = startX + (idx / Math.max(waypoints.length - 1, 1)) * (endX - startX);
+                const altRatio = Math.min(Math.max(wp.altFt / crzAlt, 0), 1);
+                const y = groundY - altRatio * (groundY - topY);
+                return { wp, x, y };
+              });
+
+              const pathD = points
+                .map((pt, idx) => `${idx === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`)
+                .join(' ');
+
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-mono text-outline">
+                    <span className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[15px] text-primary">show_chart</span>
+                      <span>
+                        VERTICAL SITUATION PROFILE (VSD) • {flightPlan.origin.icao} ({flightPlan.sid}) → {flightPlan.destination.icao} ({flightPlan.approach})
+                      </span>
+                    </span>
+                    <div className="hidden sm:flex items-center gap-3 text-[10px]">
+                      <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#4edea3]" /> SID</span>
+                      <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#4cd7f6]" /> CRUISE</span>
+                      <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#ffb95f]" /> STAR</span>
+                      <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#e879f9]" /> APPROACH</span>
+                    </div>
+                  </div>
+
+                  <div className="w-full h-48 bg-black/50 rounded-xl border border-white/10 p-2 overflow-hidden relative shadow-inner">
+                    <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 170">
+                      <defs>
+                        <linearGradient id="vsdTerrainGrad" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="#3d494c" stopOpacity="0.8" />
+                          <stop offset="100%" stopColor="#121622" stopOpacity="0.95" />
+                        </linearGradient>
+                        <linearGradient id="vsdFlightEnvelope" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="#4cd7f6" stopOpacity="0.18" />
+                          <stop offset="100%" stopColor="#4cd7f6" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+
+                      {/* Altitude Horizontal Reference Grid Lines */}
+                      <line stroke="rgba(255,255,255,0.08)" strokeDasharray="2 4" x1="45" x2="980" y1={topY} y2={topY} />
+                      <text className="fill-primary font-mono text-[9px] font-bold" x="8" y={topY + 3}>
+                        FL{Math.round(crzAlt / 100)}
+                      </text>
+
+                      <line
+                        stroke="rgba(255,255,255,0.06)"
+                        strokeDasharray="2 4"
+                        x1="45"
+                        x2="980"
+                        y1={topY + (groundY - topY) * 0.45}
+                        y2={topY + (groundY - topY) * 0.45}
+                      />
+                      <text className="fill-outline/60 font-mono text-[9px]" x="8" y={topY + (groundY - topY) * 0.45 + 3}>
+                        FL180
+                      </text>
+
+                      <line
+                        stroke="rgba(255,255,255,0.06)"
+                        strokeDasharray="2 4"
+                        x1="45"
+                        x2="980"
+                        y1={topY + (groundY - topY) * 0.72}
+                        y2={topY + (groundY - topY) * 0.72}
+                      />
+                      <text className="fill-outline/60 font-mono text-[9px]" x="8" y={topY + (groundY - topY) * 0.72 + 3}>
+                        10,000'
+                      </text>
+
+                      <line stroke="rgba(255,255,255,0.12)" x1="45" x2="980" y1={groundY} y2={groundY} />
+                      <text className="fill-outline/70 font-mono text-[9px]" x="8" y={groundY + 3}>
+                        GND
+                      </text>
+
+                      {/* Flight envelope gradient fill */}
+                      <polygon
+                        fill="url(#vsdFlightEnvelope)"
+                        points={`${points[0].x},${groundY} ${points.map((p) => `${p.x},${p.y}`).join(' ')} ${points[points.length - 1].x},${groundY}`}
+                      />
+
+                      {/* Terrain silhouette along base */}
+                      <path
+                        d="M 50 170 L 50 148 Q 180 145 280 138 Q 420 115 560 126 Q 720 136 860 144 Q 940 146 980 148 L 980 170 Z"
+                        fill="url(#vsdTerrainGrad)"
+                      />
+
+                      {/* Connect Flight Path Polyline */}
+                      <path d={pathD} fill="none" stroke="#4cd7f6" strokeWidth="2.5" strokeLinecap="round" />
+                      <path d={pathD} fill="none" stroke="#ffffff" strokeDasharray="4 2" strokeWidth="1" strokeLinecap="round" />
+
+                      {/* Waypoint Altitude Ticks & Vertical Drop Lines */}
+                      {points.map((pt, idx) => {
+                        const isOrigin = idx === 0;
+                        const isDest = idx === points.length - 1;
+                        const color =
+                          pt.wp.phase === 'approach'
+                            ? '#e879f9'
+                            : pt.wp.phase === 'star'
+                            ? '#ffb95f'
+                            : pt.wp.phase === 'sid'
+                            ? '#4edea3'
+                            : pt.wp.isTOC
+                            ? '#4edea3'
+                            : '#4cd7f6';
+
+                        // Stagger labels vertically to prevent overlap
+                        const isStaggered = idx % 2 === 1;
+                        const nameY = Math.max(pt.y - (isStaggered ? 16 : 24), 14);
+                        const altY = nameY + 8;
+
+                        // Formatted altitude text
+                        const altLabel =
+                          pt.wp.altFt >= 18000
+                            ? `FL${Math.round(pt.wp.altFt / 100)}`
+                            : pt.wp.altFt <= 200
+                            ? `${pt.wp.altFt}' GND`
+                            : `${pt.wp.altFt.toLocaleString()}'`;
+
+                        return (
+                          <g key={pt.wp.ident + idx} className="cursor-pointer group">
+                            {/* Vertical drop line down to ground */}
+                            <line
+                              x1={pt.x}
+                              x2={pt.x}
+                              y1={pt.y}
+                              y2={groundY}
+                              stroke={color}
+                              strokeWidth="1"
+                              strokeDasharray="2 3"
+                              opacity="0.35"
+                            />
+
+                            {/* Waypoint Marker Diamond */}
+                            <circle
+                              cx={pt.x}
+                              cy={pt.y}
+                              r={isOrigin || isDest || pt.wp.isTOC || pt.wp.isTOD ? '4.5' : '3.5'}
+                              fill={color}
+                              stroke="#080c15"
+                              strokeWidth="1.5"
+                            />
+
+                            {/* Waypoint Ident Label */}
+                            <text
+                              x={pt.x}
+                              y={nameY}
+                              textAnchor="middle"
+                              className="font-mono text-[9px] font-bold fill-white tracking-tight"
+                            >
+                              {pt.wp.ident}
+                            </text>
+
+                            {/* Waypoint Elevation / Altitude Label */}
+                            <text
+                              x={pt.x}
+                              y={altY}
+                              textAnchor="middle"
+                              fill={color}
+                              className="font-mono text-[8px] font-semibold"
+                            >
+                              {altLabel}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </div>
                 </div>
-
-                <div className="w-full h-32 bg-black/40 rounded-xl border border-white/10 p-2 overflow-hidden relative">
-                  <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 800 100">
-                    <defs>
-                      <linearGradient id="vsdTerrainGrad" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#3d494c" stopOpacity="0.8" />
-                        <stop offset="100%" stopColor="#171b26" stopOpacity="0.95" />
-                      </linearGradient>
-                    </defs>
-
-                    {/* Altitude grid lines */}
-                    <line stroke="rgba(255,255,255,0.06)" strokeDasharray="2 4" x1="0" x2="800" y1="20" y2="20" />
-                    <text className="fill-outline/50 font-mono text-[9px]" x="5" y="18">
-                      FL{flightPlan.cruisingAlt / 100}
-                    </text>
-                    <line stroke="rgba(255,255,255,0.06)" strokeDasharray="2 4" x1="0" x2="800" y1="55" y2="55" />
-                    <text className="fill-outline/50 font-mono text-[9px]" x="5" y="52">
-                      FL180
-                    </text>
-
-                    {/* Mountain terrain silhouette */}
-                    <path
-                      d="M 0 100 L 0 95 Q 120 92 220 84 Q 380 62 520 72 Q 680 84 800 92 L 800 100 Z"
-                      fill="url(#vsdTerrainGrad)"
-                    />
-
-                    {/* Climb -> Cruise -> Step Descent Flight Path */}
-                    <path
-                      d="M 30 95 L 180 20 L 520 20 L 680 55 L 770 94"
-                      fill="none"
-                      stroke="#4cd7f6"
-                      strokeWidth="2.5"
-                    />
-                    <path
-                      d="M 30 95 L 180 20 L 520 20 L 680 55 L 770 94"
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeDasharray="4 2"
-                      strokeWidth="1.2"
-                    />
-
-                    {/* TOC Marker */}
-                    <circle cx="180" cy="20" fill="#4edea3" r="3.5" />
-                    <text className="fill-secondary font-mono text-[9px] font-bold" x="185" y="15">
-                      TOC
-                    </text>
-
-                    {/* Cruise Jet Marker */}
-                    <circle cx="360" cy="20" fill="#4cd7f6" r="4" />
-                    <text className="fill-primary font-mono text-[9px] font-bold" x="370" y="24">
-                      CRZ FL{flightPlan.cruisingAlt / 100}
-                    </text>
-
-                    {/* TOD Marker */}
-                    <circle cx="520" cy="20" fill="#ffb95f" r="3.5" />
-                    <text className="fill-tertiary font-mono text-[9px] font-bold" x="525" y="15">
-                      TOD
-                    </text>
-
-                    {/* Approach & Touchdown */}
-                    <text className="fill-[#e879f9] font-mono text-[9px] font-bold" x="710" y="88">
-                      {flightPlan.approach}
-                    </text>
-                  </svg>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* PANEL 4: MSFS 2024 World Map Exporter */}
             {activeTab === 'export' && (
