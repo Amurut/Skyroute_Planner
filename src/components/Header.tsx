@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({ flightPlan, onOpenSearch, onOpen
               <span className="material-symbols-outlined text-[19px]">navigation</span>
             </div>
             <span className="font-bold tracking-tight text-white text-[15px] hidden sm:inline">
-              VectorEFB <span className="text-[10px] text-primary font-mono font-normal">2024</span>
+              SkyRouter <span className="text-[10px] text-primary font-mono font-normal">2024</span>
             </span>
           </div>
 

@@ -1,4 +1,4 @@
-# VectorEFB • SkyRoute Planner (MSFS 2024 & 2020)
+# SkyRouter • Flight Operations Planner (MSFS 2024 & 2020)
 
 [![Deploy to GitHub Pages](https://github.com/Amurut/Skyroute_Planner/actions/workflows/deploy.yml/badge.svg)](https://github.com/Amurut/Skyroute_Planner/actions/workflows/deploy.yml)
 [![Live Application](https://img.shields.io/badge/Live_App-amurut.com%2FSkyroute__Planner-06B6D4?style=flat&logo=googlechrome)](https://amurut.com/Skyroute_Planner/)

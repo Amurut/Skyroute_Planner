@@ -60,7 +60,7 @@ export function generateMSFSPln(plan: FlightPlan): string {
 <SimBase.Document Type="AceXML" version="1,0">
     <Descr>AceXML Document</Descr>
     <FlightPlan.FlightPlan>
-        <Title>${plan.origin.icao} to ${plan.destination.icao} VectorEFB</Title>
+        <Title>${plan.origin.icao} to ${plan.destination.icao} SkyRouter</Title>
         <FPType>IFR</FPType>
         <RouteType>HighAlt</RouteType>
         <CruisingAlt>${plan.cruisingAlt}</CruisingAlt>

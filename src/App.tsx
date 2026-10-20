@@ -70,7 +70,7 @@ export const App: React.FC = () => {
       <div className="w-full h-full flex items-center justify-center bg-[#070a11] text-primary font-mono text-sm">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <span>VectorEFB Initializing Flight Operations...</span>
+          <span>SkyRouter Initializing Flight Operations...</span>
         </div>
       </div>
     );
