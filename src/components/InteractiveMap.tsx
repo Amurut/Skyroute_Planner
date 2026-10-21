@@ -18,6 +18,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
   const routeLayerRef = useRef<L.LayerGroup | null>(null);
   const airportLayerRef = useRef<L.LayerGroup | null>(null);
   const [activeTheme, setActiveTheme] = useState<MapTheme>('dark');
+  const [isMobileLayerSheetOpen, setIsMobileLayerSheetOpen] = useState(false);
 
   // Tile layer configurations (100% Free, NO API KEY required)
   const TILE_SOURCES: Record<MapTheme, { base: string; ref?: string; maxZoom: number }> = {
@@ -74,7 +75,13 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
     airportLayerRef.current = airportLayer;
     mapInstanceRef.current = map;
 
+    const handleResize = () => {
+      map.invalidateSize();
+    };
+    window.addEventListener('resize', handleResize);
+
     return () => {
+      window.removeEventListener('resize', handleResize);
       map.remove();
       mapInstanceRef.current = null;
     };
@@ -317,10 +324,12 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
     });
 
     // Fit map bounds smoothly
+    // Fit map bounds smoothly with responsive padding
     if (wps.length > 0) {
       const allCoords = wps.map((w) => [w.lat, w.lon] as [number, number]);
       const bounds = L.latLngBounds(allCoords);
-      map.fitBounds(bounds, { padding: [120, 120], maxZoom: 8 });
+      const isMobile = window.innerWidth < 768;
+      map.fitBounds(bounds, { padding: isMobile ? [40, 40] : [120, 120], maxZoom: 8 });
     }
   }, [flightPlan, onSelectAirport]);
 
@@ -333,7 +342,8 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
   const handleRecenter = () => {
     if (mapInstanceRef.current && flightPlan.waypoints.length > 0) {
       const bounds = L.latLngBounds(flightPlan.waypoints.map((w) => [w.lat, w.lon]));
-      mapInstanceRef.current.fitBounds(bounds, { padding: [120, 120] });
+      const isMobile = window.innerWidth < 768;
+      mapInstanceRef.current.fitBounds(bounds, { padding: isMobile ? [40, 40] : [120, 120] });
     }
   };
 
@@ -342,8 +352,8 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
       {/* Real Interactive Leaflet Canvas */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full z-0 cursor-grab active:cursor-grabbing" />
 
-      {/* Top-Left Floating Map Controls & Theme Switcher */}
-      <aside className="fixed top-24 left-6 z-30 flex flex-col gap-2 pointer-events-auto">
+      {/* DESKTOP Top-Left Floating Map Controls & Theme Switcher */}
+      <aside className="fixed top-24 left-6 z-30 hidden md:flex flex-col gap-2 pointer-events-auto">
         {/* Layer Switcher */}
         <div className="glass-island p-1 rounded-xl flex flex-col gap-1 w-36 shadow-xl">
           <div className="px-2 py-1 flex items-center justify-between text-[10px] font-mono font-semibold text-outline uppercase tracking-wider">
@@ -440,7 +450,154 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
         </div>
       </aside>
 
-      {/* Top-Right Sleek Flight Telemetry HUD Widget */}
+      {/* MOBILE Floating Mini Control Cluster (Top-Left) */}
+      <aside className="fixed top-16 left-3 z-30 flex md:hidden flex-col gap-1.5 pointer-events-auto">
+        <button
+          onClick={() => setIsMobileLayerSheetOpen(true)}
+          className="w-8 h-8 rounded-xl bg-[#0a0e18]/85 backdrop-blur-md border border-white/10 text-outline hover:text-white flex items-center justify-center relative shadow-lg active:scale-95 transition-all cursor-pointer"
+          title="Map Layers & Route Legend"
+        >
+          <span className="material-symbols-outlined text-[18px]">layers</span>
+          <span
+            className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
+              activeTheme === 'dark' ? 'bg-primary' : activeTheme === 'satellite' ? 'bg-secondary' : 'bg-tertiary'
+            }`}
+          />
+        </button>
+
+        <div className="flex flex-col bg-[#0a0e18]/85 backdrop-blur-md rounded-xl border border-white/10 p-0.5 shadow-lg">
+          <button
+            onClick={() => handleZoom(1)}
+            className="w-7 h-7 rounded-lg text-outline hover:text-white flex items-center justify-center transition-colors active:bg-white/10 cursor-pointer"
+            title="Zoom In"
+          >
+            <span className="material-symbols-outlined text-[16px]">add</span>
+          </button>
+          <div className="w-5 h-px bg-white/10 mx-auto" />
+          <button
+            onClick={() => handleZoom(-1)}
+            className="w-7 h-7 rounded-lg text-outline hover:text-white flex items-center justify-center transition-colors active:bg-white/10 cursor-pointer"
+            title="Zoom Out"
+          >
+            <span className="material-symbols-outlined text-[16px]">remove</span>
+          </button>
+          <div className="w-5 h-px bg-white/10 mx-auto" />
+          <button
+            onClick={handleRecenter}
+            className="w-7 h-7 rounded-lg text-primary flex items-center justify-center transition-colors active:bg-white/10 cursor-pointer"
+            title="Recenter Route"
+          >
+            <span className="material-symbols-outlined text-[15px]">my_location</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* MOBILE Top-Right Telemetry Capsule */}
+      <aside className="fixed top-16 right-3 z-30 flex md:hidden pointer-events-auto">
+        <div className="bg-[#0a0e18]/85 backdrop-blur-md border border-white/10 rounded-xl px-2.5 py-1 shadow-lg font-mono text-[11px] flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+          <span className="text-white font-bold">FL{Math.round(flightPlan.cruisingAlt / 100)}</span>
+          <span className="text-white/20">•</span>
+          <span className="text-primary font-semibold">{flightPlan.distanceNm} NM</span>
+          <span className="text-white/20">•</span>
+          <span className="text-outline text-[10px]">RW{flightPlan.destRunway.ident}</span>
+        </div>
+      </aside>
+
+      {/* MOBILE Layers & Legend Modal / Slide-up Sheet */}
+      {isMobileLayerSheetOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm pointer-events-auto"
+          onClick={() => setIsMobileLayerSheetOpen(false)}
+        >
+          <div
+            className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl bg-[#0c101a] border border-white/10 shadow-2xl p-4 flex flex-col gap-3 pb-safe"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-2">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] text-primary">layers</span>
+                <span className="font-bold text-white text-sm">Map Style &amp; Route Legend</span>
+              </div>
+              <button
+                onClick={() => setIsMobileLayerSheetOpen(false)}
+                className="w-7 h-7 rounded-lg hover:bg-white/10 text-outline hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            {/* Map Layers */}
+            <div>
+              <span className="text-[10px] font-mono text-outline uppercase tracking-wider block mb-1.5 font-bold">
+                Map Theme
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => switchTheme('dark')}
+                  className={`p-2 rounded-xl text-xs font-mono flex flex-col items-center gap-1 border transition-all cursor-pointer ${
+                    activeTheme === 'dark'
+                      ? 'bg-primary/15 border-primary text-primary font-bold'
+                      : 'bg-white/[0.03] border-white/[0.06] text-outline hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">dark_mode</span>
+                  <span>Tactical</span>
+                </button>
+                <button
+                  onClick={() => switchTheme('satellite')}
+                  className={`p-2 rounded-xl text-xs font-mono flex flex-col items-center gap-1 border transition-all cursor-pointer ${
+                    activeTheme === 'satellite'
+                      ? 'bg-secondary/15 border-secondary text-secondary font-bold'
+                      : 'bg-white/[0.03] border-white/[0.06] text-outline hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">satellite_alt</span>
+                  <span>Satellite</span>
+                </button>
+                <button
+                  onClick={() => switchTheme('osm')}
+                  className={`p-2 rounded-xl text-xs font-mono flex flex-col items-center gap-1 border transition-all cursor-pointer ${
+                    activeTheme === 'osm'
+                      ? 'bg-tertiary/15 border-tertiary text-tertiary font-bold'
+                      : 'bg-white/[0.03] border-white/[0.06] text-outline hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">map</span>
+                  <span>OpenStreet</span>
+                </button>
+              </div>
+            </div>
+
+            {/* IFR Route Phases Legend */}
+            <div>
+              <span className="text-[10px] font-mono text-outline uppercase tracking-wider block mb-1.5 font-bold">
+                IFR Route Phases
+              </span>
+              <div className="grid grid-cols-2 gap-1.5 text-xs font-mono">
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#4edea3]" />
+                  <span className="text-secondary font-semibold">SID Departure</span>
+                </div>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#4cd7f6]" />
+                  <span className="text-primary font-semibold">Enroute Cruise</span>
+                </div>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#ffb95f]" />
+                  <span className="text-tertiary font-semibold">STAR Arrival</span>
+                </div>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#e879f9]" />
+                  <span className="text-[#e879f9] font-semibold">Approach / ILS</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DESKTOP Top-Right Sleek Flight Telemetry HUD Widget */}
       <aside className="fixed top-24 right-6 z-30 hidden md:flex flex-col gap-2 pointer-events-auto">
         <div className="glass-island p-3.5 rounded-2xl w-72 shadow-2xl">
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[0.07]">
@@ -464,7 +621,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
             </div>
             <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
               <span className="text-[10px] text-outline block mb-0.5">CRZ ALTITUDE</span>
-              <span className="text-sm font-bold text-white font-mono">FL{flightPlan.cruisingAlt / 100}</span>
+              <span className="text-sm font-bold text-white font-mono">FL{Math.round(flightPlan.cruisingAlt / 100)}</span>
             </div>
             <div className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
               <span className="text-[10px] text-outline block mb-0.5">APPROACH</span>
