@@ -207,8 +207,23 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
                         </JargonTooltip>
                       </div>
 
-                      {/* Interactive STAR & Approach Selectors */}
-                      <div className="grid grid-cols-2 gap-2 mt-2 font-mono text-xs">
+                      {/* Interactive Arrival Runway, STAR & Approach Selectors */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 font-mono text-xs">
+                        <div>
+                          <label className="text-[10px] text-outline block mb-1">ARRIVAL RUNWAY</label>
+                          <select
+                            value={flightPlan.destRunway.ident}
+                            onChange={(e) => onUpdateProcedures({ arrRwyIdent: e.target.value })}
+                            className="w-full px-2 py-1.5 rounded-lg bg-black/50 border border-white/10 text-white text-xs focus:outline-none focus:border-tertiary cursor-pointer"
+                          >
+                            {flightPlan.destination.runways.map((r) => (
+                              <option key={r.ident} value={r.ident}>
+                                RWY {r.ident} {r.ils ? `(ILS ${r.ils.freq})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
                         <div>
                           <label className="text-[10px] text-outline block mb-1">SELECT STAR</label>
                           <select
@@ -246,8 +261,8 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
                         <span className="w-1.5 h-1.5 rounded-full bg-[#e879f9]" />
                         <span className="text-white">Active Approach: <strong className="text-[#e879f9]">{flightPlan.approach}</strong></span>
                       </span>
-                      <span className="text-primary text-[10px]">
-                        {flightPlan.destRunway.ils ? `ILS ${flightPlan.destRunway.ils.freq}` : 'VISUAL'}
+                      <span className="text-outline text-[10px]">
+                        RWY {flightPlan.destRunway.ident} {flightPlan.destRunway.ils ? `• ILS ${flightPlan.destRunway.ils.freq} MHz` : '• VISUAL'}
                       </span>
                     </div>
                   </div>

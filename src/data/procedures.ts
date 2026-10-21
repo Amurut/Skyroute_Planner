@@ -55,6 +55,40 @@ export function getRunwayDepartureEndCoords(airport: Airport, runway: Runway): {
 }
 
 /**
+ * Tests if a procedure is valid for the specified runway
+ */
+export function isProcedureForRunway(proc: ProcedureOption, rwyIdent: string): boolean {
+  if (!proc || !rwyIdent) return false;
+  const cleanRwy = rwyIdent.trim().toUpperCase();
+  const rwyDigits = cleanRwy.replace(/[^0-9]/g, '');
+
+  if (proc.runway) {
+    const cleanProc = proc.runway.trim().toUpperCase();
+    if (cleanProc === cleanRwy) return true;
+    const procDigits = cleanProc.replace(/[^0-9]/g, '');
+    const procHasLetter = /[LRC]/i.test(cleanProc);
+    // If proc specifies runway number without suffix (e.g. "09"), it applies to parallel runways (09L/09R)
+    if (!procHasLetter && procDigits && rwyDigits && procDigits === rwyDigits) {
+      return true;
+    }
+    return false;
+  }
+  if (proc.runways && proc.runways.length > 0) {
+    return proc.runways.some((r) => {
+      const cleanR = r.trim().toUpperCase();
+      if (cleanR === cleanRwy) return true;
+      const digits = cleanR.replace(/[^0-9]/g, '');
+      const hasLetter = /[LRC]/i.test(cleanR);
+      if (!hasLetter && digits && rwyDigits && digits === rwyDigits) {
+        return true;
+      }
+      return false;
+    });
+  }
+  return true;
+}
+
+/**
  * Dynamically generates authentic ILS / RNAV approach fixes along the extended runway centerline
  * down to the exact physical runway landing threshold.
  */
@@ -113,7 +147,8 @@ export function generateRunwayApproach(
 }
 
 /**
- * Curated authentic SIDs and STARs for major simulator airports & Indian hubs
+ * Curated authentic SIDs and STARs for major simulator airports & Indian hubs,
+ * with strict runway associations.
  */
 export const AIRPORT_PROCEDURES: Record<
   string,
@@ -125,9 +160,11 @@ export const AIRPORT_PROCEDURES: Record<
   // BENGALURU (VOBL) - Kempegowda Intl
   VOBL: {
     sids: [
+      // 09L / 09R Departures (Eastbound heading ~092°)
       {
         name: 'SUSG1A',
         type: 'SID',
+        runways: ['09L', '09R'],
         description: 'SUSGI 1A Departure via East Corridor to Chennai / Bay of Bengal',
         waypoints: [
           { ident: 'BL401', type: 'Intersection', lat: 13.208, lon: 77.820, altFt: 5000, info: 'Initial Turn' },
@@ -135,26 +172,9 @@ export const AIRPORT_PROCEDURES: Record<
         ],
       },
       {
-        name: 'OPAL1A',
-        type: 'SID',
-        description: 'OPALE 1A Departure via North-West to Hyderabad / Mumbai',
-        waypoints: [
-          { ident: 'BL402', type: 'Intersection', lat: 13.310, lon: 77.650, altFt: 6000, info: 'North Climb' },
-          { ident: 'OPALE', type: 'Intersection', lat: 13.580, lon: 77.420, altFt: 14000, info: 'OPALE Transition' },
-        ],
-      },
-      {
-        name: 'GUNM1A',
-        type: 'SID',
-        description: 'GUNMO 1A Departure via South-West to Cochin / Trivandrum',
-        waypoints: [
-          { ident: 'BL403', type: 'Intersection', lat: 13.050, lon: 77.580, altFt: 6500, info: 'South Turn' },
-          { ident: 'GUNMO', type: 'Intersection', lat: 12.650, lon: 77.300, altFt: 13000, info: 'GUNMO Fix' },
-        ],
-      },
-      {
         name: 'PABT1A',
         type: 'SID',
+        runways: ['09L', '09R'],
         description: 'PABTY 1A Departure via North-East Corridor',
         waypoints: [
           { ident: 'BL404', type: 'Intersection', lat: 13.340, lon: 77.880, altFt: 7000, info: 'NE Vector' },
@@ -162,29 +182,85 @@ export const AIRPORT_PROCEDURES: Record<
         ],
       },
       {
-        name: 'MIA1A',
-        type: 'SID',
-        description: 'MIA 1A Departure via West to Mangalore / Arabian Sea',
-        waypoints: [
-          { ident: 'BL405', type: 'Intersection', lat: 13.150, lon: 77.400, altFt: 6000, info: 'West Exit' },
-          { ident: 'MIA', type: 'VOR', lat: 12.920, lon: 74.880, altFt: 16000, info: 'Mangalore VOR' },
-        ],
-      },
-      {
         name: 'VAGU1A',
         type: 'SID',
+        runways: ['09L', '09R'],
         description: 'VAGUS 1A Departure via South-East to Coimbatore',
         waypoints: [
           { ident: 'BL406', type: 'Intersection', lat: 12.980, lon: 77.850, altFt: 7000, info: 'SE Turn' },
           { ident: 'VAGUS', type: 'Intersection', lat: 12.450, lon: 77.920, altFt: 14000, info: 'VAGUS Fix' },
         ],
       },
+      {
+        name: 'OPAL1A',
+        type: 'SID',
+        runways: ['09L', '09R'],
+        description: 'OPALE 1A Departure via North-West to Hyderabad / Mumbai',
+        waypoints: [
+          { ident: 'BL402', type: 'Intersection', lat: 13.310, lon: 77.650, altFt: 6000, info: 'North Climb' },
+          { ident: 'OPALE', type: 'Intersection', lat: 13.580, lon: 77.420, altFt: 14000, info: 'OPALE Transition' },
+        ],
+      },
+      // 27L / 27R Departures (Westbound heading ~272°)
+      {
+        name: 'MIA1B',
+        type: 'SID',
+        runways: ['27R', '27L'],
+        description: 'MIA 1B Departure via West to Mangalore / Arabian Sea',
+        waypoints: [
+          { ident: 'BL405', type: 'Intersection', lat: 13.150, lon: 77.400, altFt: 6000, info: 'West Exit' },
+          { ident: 'MIA', type: 'VOR', lat: 12.920, lon: 74.880, altFt: 16000, info: 'Mangalore VOR' },
+        ],
+      },
+      {
+        name: 'GUNM1B',
+        type: 'SID',
+        runways: ['27R', '27L'],
+        description: 'GUNMO 1B Departure via South-West to Cochin / Trivandrum',
+        waypoints: [
+          { ident: 'BL403', type: 'Intersection', lat: 13.050, lon: 77.580, altFt: 6500, info: 'South Turn' },
+          { ident: 'GUNMO', type: 'Intersection', lat: 12.650, lon: 77.300, altFt: 13000, info: 'GUNMO Fix' },
+        ],
+      },
+      {
+        name: 'OPAL1B',
+        type: 'SID',
+        runways: ['27R', '27L'],
+        description: 'OPALE 1B Departure via North-West to Hyderabad / Mumbai',
+        waypoints: [
+          { ident: 'BL407', type: 'Intersection', lat: 13.250, lon: 77.500, altFt: 6000, info: 'West-North Climb' },
+          { ident: 'OPALE', type: 'Intersection', lat: 13.580, lon: 77.420, altFt: 14000, info: 'OPALE Transition' },
+        ],
+      },
     ],
     stars: [
+      // 09L / 09R Arrivals (landing on heading 092°, arriving from West/North)
+      {
+        name: 'LATU1A',
+        type: 'STAR',
+        runways: ['09L', '09R'],
+        description: 'LATUR 1A Arrival from West / Arabian Coast to RWY 09',
+        waypoints: [
+          { ident: 'LATUR', type: 'Intersection', lat: 13.100, lon: 77.050, altFt: 14000, info: 'LATUR Entry' },
+          { ident: 'BL504', type: 'Intersection', lat: 13.140, lon: 77.450, altFt: 7500, info: 'Base Turn' },
+        ],
+      },
+      {
+        name: 'MIA1A',
+        type: 'STAR',
+        runways: ['09L', '09R'],
+        description: 'MIA 1A Arrival from Mangalore / West to RWY 09',
+        waypoints: [
+          { ident: 'MIA', type: 'VOR', lat: 12.920, lon: 74.880, altFt: 16000, info: 'MIA Entry' },
+          { ident: 'BL506', type: 'Intersection', lat: 13.180, lon: 77.480, altFt: 6500, info: 'Inbound Vector' },
+        ],
+      },
+      // 27L / 27R Arrivals (landing on heading 272°, arriving from East/North)
       {
         name: 'TELP1B',
         type: 'STAR',
-        description: 'TELPO 1B Arrival from North / Hyderabad',
+        runways: ['27R', '27L'],
+        description: 'TELPO 1B Arrival from North / Hyderabad to RWY 27',
         waypoints: [
           { ident: 'TELPO', type: 'Intersection', lat: 13.850, lon: 77.550, altFt: 16000, info: 'TELPO Entry' },
           { ident: 'BL501', type: 'Intersection', lat: 13.480, lon: 77.620, altFt: 9000, info: 'Inbound Descent' },
@@ -194,25 +270,18 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'ADEN1B',
         type: 'STAR',
-        description: 'ADENI 1B Arrival from East / Chennai',
+        runways: ['27R', '27L'],
+        description: 'ADENI 1B Arrival from East / Chennai to RWY 27',
         waypoints: [
           { ident: 'ADENI', type: 'Intersection', lat: 13.150, lon: 78.450, altFt: 15000, info: 'ADENI Entry' },
           { ident: 'BL503', type: 'Intersection', lat: 13.180, lon: 78.050, altFt: 8500, info: 'Downwind Leg' },
         ],
       },
       {
-        name: 'LATU1B',
-        type: 'STAR',
-        description: 'LATUR 1B Arrival from West / Arabian Coast',
-        waypoints: [
-          { ident: 'LATUR', type: 'Intersection', lat: 13.100, lon: 77.050, altFt: 14000, info: 'LATUR Entry' },
-          { ident: 'BL504', type: 'Intersection', lat: 13.140, lon: 77.450, altFt: 7500, info: 'Base Turn' },
-        ],
-      },
-      {
         name: 'BIA1B',
         type: 'STAR',
-        description: 'BIA 1B Arrival via Bengaluru VOR Radial',
+        runways: ['27R', '27L'],
+        description: 'BIA 1B Arrival via Bengaluru VOR Radial to RWY 27',
         waypoints: [
           { ident: 'BIA', type: 'VOR', lat: 13.200, lon: 77.710, altFt: 10000, info: 'BIA VOR' },
           { ident: 'BL505', type: 'Intersection', lat: 13.205, lon: 77.550, altFt: 6000, info: 'Arrival Intercept' },
@@ -227,63 +296,70 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'HYD1A',
         type: 'SID',
-        description: 'HYD 1A Departure via Hyderabad VOR',
+        runways: ['09L', '09R'],
+        description: 'HYD 1A Departure via East Turn to Hyderabad VOR',
         waypoints: [
           { ident: 'HS401', type: 'Intersection', lat: 17.240, lon: 78.520, altFt: 4500, info: 'Initial Climb' },
           { ident: 'HYD', type: 'VOR', lat: 17.400, lon: 78.470, altFt: 9000, info: 'Hyderabad VOR' },
         ],
       },
       {
-        name: 'GOLC1A',
-        type: 'SID',
-        description: 'GOLCA 1A Departure to North-West / Mumbai',
-        waypoints: [
-          { ident: 'HS402', type: 'Intersection', lat: 17.350, lon: 78.300, altFt: 6000, info: 'NW Exit' },
-          { ident: 'GOLCA', type: 'Intersection', lat: 17.650, lon: 78.020, altFt: 13000, info: 'GOLCA Fix' },
-        ],
-      },
-      {
-        name: 'OPAL1B',
-        type: 'SID',
-        description: 'OPALE 1B Departure to South / Bengaluru',
-        waypoints: [
-          { ident: 'HS403', type: 'Intersection', lat: 17.050, lon: 78.420, altFt: 5500, info: 'South Climb' },
-          { ident: 'OPALE', type: 'Intersection', lat: 16.550, lon: 78.350, altFt: 12000, info: 'OPALE Fix' },
-        ],
-      },
-      {
         name: 'WIP1A',
         type: 'SID',
+        runways: ['09L', '09R'],
         description: 'WIPER 1A Departure to East / Visakhapatnam',
         waypoints: [
           { ident: 'HS404', type: 'Intersection', lat: 17.250, lon: 78.680, altFt: 6000, info: 'East Exit' },
           { ident: 'WIPER', type: 'Intersection', lat: 17.320, lon: 79.100, altFt: 14000, info: 'WIPER Fix' },
         ],
       },
+      {
+        name: 'BOM4B',
+        type: 'SID',
+        runways: ['27R', '27L'],
+        description: 'BOM 4B Departure to West / Mumbai',
+        waypoints: [
+          { ident: 'HS402', type: 'Intersection', lat: 17.230, lon: 78.300, altFt: 6000, info: 'West Exit' },
+          { ident: 'GOLCA', type: 'Intersection', lat: 17.650, lon: 78.020, altFt: 13000, info: 'GOLCA Fix' },
+        ],
+      },
+      {
+        name: 'OPAL1B',
+        type: 'SID',
+        runways: ['27R', '27L'],
+        description: 'OPALE 1B Departure to South / Bengaluru',
+        waypoints: [
+          { ident: 'HS403', type: 'Intersection', lat: 17.050, lon: 78.350, altFt: 5500, info: 'South-West Climb' },
+          { ident: 'OPALE', type: 'Intersection', lat: 16.550, lon: 78.350, altFt: 12000, info: 'OPALE Fix' },
+        ],
+      },
     ],
     stars: [
       {
+        name: 'DUBI1A',
+        type: 'STAR',
+        runways: ['09L', '09R'],
+        description: 'DUBID 1A Arrival from West / Mumbai to RWY 09',
+        waypoints: [
+          { ident: 'DUBID', type: 'Intersection', lat: 17.200, lon: 77.850, altFt: 13000, info: 'DUBID Entry' },
+          { ident: 'HS502', type: 'Intersection', lat: 17.220, lon: 78.250, altFt: 6000, info: 'Straight-in Base' },
+        ],
+      },
+      {
         name: 'HYD1B',
         type: 'STAR',
-        description: 'HYD 1B Standard Terminal Arrival from North',
+        runways: ['27R', '27L'],
+        description: 'HYD 1B Standard Terminal Arrival to RWY 27',
         waypoints: [
           { ident: 'HS501', type: 'Intersection', lat: 17.800, lon: 78.420, altFt: 14000, info: 'Arrival Gate' },
           { ident: 'HYD', type: 'VOR', lat: 17.400, lon: 78.470, altFt: 8000, info: 'Overhead VOR' },
         ],
       },
       {
-        name: 'DUBI1B',
-        type: 'STAR',
-        description: 'DUBID 1B Arrival from West / Pune / Mumbai',
-        waypoints: [
-          { ident: 'DUBID', type: 'Intersection', lat: 17.200, lon: 77.850, altFt: 13000, info: 'DUBID Entry' },
-          { ident: 'HS502', type: 'Intersection', lat: 17.220, lon: 78.250, altFt: 6000, info: 'Downwind Base' },
-        ],
-      },
-      {
         name: 'GOLC1B',
         type: 'STAR',
-        description: 'GOLCA 1B Arrival from South / Bengaluru / Chennai',
+        runways: ['27R', '27L'],
+        description: 'GOLCA 1B Arrival from South / Bengaluru to RWY 27',
         waypoints: [
           { ident: 'GOLCA', type: 'Intersection', lat: 16.750, lon: 78.420, altFt: 14000, info: 'GOLCA South' },
           { ident: 'HS503', type: 'Intersection', lat: 17.100, lon: 78.430, altFt: 7000, info: 'Base Turn' },
@@ -298,6 +374,7 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'ALI2A',
         type: 'SID',
+        runways: ['09', '10', '11R'],
         description: 'ALIGARH 2A Departure to East / Kolkata',
         waypoints: [
           { ident: 'DP401', type: 'Intersection', lat: 28.520, lon: 77.250, altFt: 5000, info: 'East Turn' },
@@ -307,6 +384,7 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'BRAVO3A',
         type: 'SID',
+        runways: ['09', '10', '11R'],
         description: 'BBD 3A Departure to South / Mumbai / Bengaluru',
         waypoints: [
           { ident: 'DP402', type: 'Intersection', lat: 28.400, lon: 77.050, altFt: 6000, info: 'South Climb' },
@@ -314,29 +392,42 @@ export const AIRPORT_PROCEDURES: Record<
         ],
       },
       {
-        name: 'GUR4A',
+        name: 'DOTI1B',
         type: 'SID',
-        description: 'GURGAON 4A Departure to West / Jaipur',
-        waypoints: [
-          { ident: 'DP403', type: 'Intersection', lat: 28.520, lon: 76.900, altFt: 5500, info: 'West Exit' },
-          { ident: 'GUR', type: 'VOR', lat: 28.420, lon: 76.650, altFt: 12000, info: 'Gurgaon Fix' },
-        ],
-      },
-      {
-        name: 'DOTI1A',
-        type: 'SID',
-        description: 'DOTIP 1A Departure to North / Amritsar / Jammu',
+        runways: ['27', '28', '29L', '29R'],
+        description: 'DOTIP 1B Departure to North / Amritsar / Jammu',
         waypoints: [
           { ident: 'DP404', type: 'Intersection', lat: 28.750, lon: 77.100, altFt: 7000, info: 'North Climb' },
           { ident: 'DOTIP', type: 'Intersection', lat: 29.250, lon: 77.050, altFt: 15000, info: 'DOTIP Fix' },
         ],
       },
+      {
+        name: 'GUR4B',
+        type: 'SID',
+        runways: ['27', '28', '29L', '29R'],
+        description: 'GURGAON 4B Departure to West / Jaipur',
+        waypoints: [
+          { ident: 'DP403', type: 'Intersection', lat: 28.520, lon: 76.900, altFt: 5500, info: 'West Exit' },
+          { ident: 'GUR', type: 'VOR', lat: 28.420, lon: 76.650, altFt: 12000, info: 'Gurgaon Fix' },
+        ],
+      },
     ],
     stars: [
       {
+        name: 'DPI1A',
+        type: 'STAR',
+        runways: ['09', '10', '11R'],
+        description: 'DPN 1A Arrival from West / Gulf / Europe to RWY 09/10/11',
+        waypoints: [
+          { ident: 'DPN', type: 'VOR', lat: 28.550, lon: 76.450, altFt: 14000, info: 'DPN Entry' },
+          { ident: 'DP503', type: 'Intersection', lat: 28.560, lon: 76.850, altFt: 6000, info: 'Final Turn' },
+        ],
+      },
+      {
         name: 'ALI1B',
         type: 'STAR',
-        description: 'ALIGARH 1B Arrival from East Corridor',
+        runways: ['27', '28', '29L', '29R'],
+        description: 'ALIGARH 1B Arrival from East Corridor to RWY 27/28/29',
         waypoints: [
           { ident: 'ALI', type: 'VOR', lat: 27.880, lon: 78.080, altFt: 16000, info: 'Aligarh Entry' },
           { ident: 'DP501', type: 'Intersection', lat: 28.350, lon: 77.450, altFt: 8000, info: 'Inbound Leg' },
@@ -345,19 +436,11 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'BBD1B',
         type: 'STAR',
-        description: 'BBD 1B Arrival from South / Mumbai',
+        runways: ['27', '28', '29L', '29R'],
+        description: 'BBD 1B Arrival from South / Mumbai to RWY 27/28/29',
         waypoints: [
           { ident: 'BBD', type: 'VOR', lat: 27.750, lon: 77.050, altFt: 15000, info: 'BBD Entry' },
-          { ident: 'DP502', type: 'Intersection', lat: 28.250, lon: 28.250, altFt: 7500, info: 'Base Intercept' },
-        ],
-      },
-      {
-        name: 'DPI1B',
-        type: 'STAR',
-        description: 'DPN 1B Arrival from West / Gulf / Europe',
-        waypoints: [
-          { ident: 'DPN', type: 'VOR', lat: 28.550, lon: 76.450, altFt: 14000, info: 'DPN Entry' },
-          { ident: 'DP503', type: 'Intersection', lat: 28.560, lon: 76.850, altFt: 6000, info: 'Final Turn' },
+          { ident: 'DP502', type: 'Intersection', lat: 28.250, lon: 77.100, altFt: 7500, info: 'Base Intercept' },
         ],
       },
     ],
@@ -369,7 +452,8 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'BBB2A',
         type: 'SID',
-        description: 'BBB 2A Departure to North / Delhi',
+        runways: ['09'],
+        description: 'BBB 2A Departure to North / Delhi via Runway 09',
         waypoints: [
           { ident: 'BB401', type: 'Intersection', lat: 19.180, lon: 72.850, altFt: 5000, info: 'North Climb' },
           { ident: 'BBB', type: 'VOR', lat: 19.450, lon: 72.820, altFt: 12000, info: 'Bombay VOR' },
@@ -378,27 +462,60 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'DAPO1A',
         type: 'SID',
-        description: 'DAPOL 1A Departure to South / Goa / Bengaluru',
+        runways: ['09'],
+        description: 'DAPOL 1A Departure to South / Bengaluru via Runway 09',
         waypoints: [
           { ident: 'BB402', type: 'Intersection', lat: 18.950, lon: 72.900, altFt: 5500, info: 'South Exit' },
           { ident: 'DAPOL', type: 'Intersection', lat: 18.350, lon: 73.150, altFt: 14000, info: 'DAPOL Fix' },
         ],
       },
       {
-        name: 'EXOL1A',
+        name: 'EXOL1B',
         type: 'SID',
-        description: 'EXOLI 1A Departure over Arabian Sea to Gulf',
+        runways: ['27'],
+        description: 'EXOLI 1B Departure over Arabian Sea to Gulf via Runway 27',
         waypoints: [
           { ident: 'BB403', type: 'Intersection', lat: 19.080, lon: 72.650, altFt: 6000, info: 'West Coastal' },
           { ident: 'EXOLI', type: 'Intersection', lat: 19.050, lon: 72.200, altFt: 15000, info: 'EXOLI Ocean Fix' },
         ],
       },
+      {
+        name: 'DAPO1B',
+        type: 'SID',
+        runways: ['27'],
+        description: 'DAPOL 1B Departure to South via Coastal Turn on Runway 27',
+        waypoints: [
+          { ident: 'BB404', type: 'Intersection', lat: 18.850, lon: 72.650, altFt: 5000, info: 'South Coast Turn' },
+          { ident: 'DAPOL', type: 'Intersection', lat: 18.350, lon: 73.150, altFt: 14000, info: 'DAPOL Fix' },
+        ],
+      },
+      {
+        name: 'DAPO1C',
+        type: 'SID',
+        runways: ['14', '32'],
+        description: 'DAPOL 1C Departure via Cross Runway',
+        waypoints: [
+          { ident: 'BB405', type: 'Intersection', lat: 18.950, lon: 72.950, altFt: 6000, info: 'Cross Runway Vector' },
+          { ident: 'DAPOL', type: 'Intersection', lat: 18.350, lon: 73.150, altFt: 14000, info: 'DAPOL Fix' },
+        ],
+      },
     ],
     stars: [
       {
+        name: 'EXOL1A',
+        type: 'STAR',
+        runways: ['09'],
+        description: 'EXOLI 1A Arrival from Gulf over Ocean to Runway 09',
+        waypoints: [
+          { ident: 'EXOLI', type: 'Intersection', lat: 19.050, lon: 72.200, altFt: 14000, info: 'EXOLI Entry' },
+          { ident: 'BB504', type: 'Intersection', lat: 19.080, lon: 72.700, altFt: 5000, info: 'Straight-in 09' },
+        ],
+      },
+      {
         name: 'DAPO1B',
         type: 'STAR',
-        description: 'DAPOL 1B Arrival from South / Bengaluru / Kochi',
+        runways: ['27'],
+        description: 'DAPOL 1B Arrival from South / Bengaluru / Kochi to Runway 27',
         waypoints: [
           { ident: 'DAPOL', type: 'Intersection', lat: 18.350, lon: 73.150, altFt: 15000, info: 'DAPOL Entry' },
           { ident: 'BB501', type: 'Intersection', lat: 18.800, lon: 73.020, altFt: 8000, info: 'Downwind Base' },
@@ -407,19 +524,11 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'AKAG1B',
         type: 'STAR',
-        description: 'AKAGA 1B Arrival from East / Hyderabad',
+        runways: ['27'],
+        description: 'AKAGA 1B Arrival from East / Hyderabad to Runway 27',
         waypoints: [
           { ident: 'AKAGA', type: 'Intersection', lat: 19.120, lon: 73.650, altFt: 14000, info: 'AKAGA Entry' },
           { ident: 'BB502', type: 'Intersection', lat: 19.100, lon: 73.150, altFt: 7000, info: 'Inbound Leg' },
-        ],
-      },
-      {
-        name: 'BEBI1B',
-        type: 'STAR',
-        description: 'BEBIX 1B Arrival from North / Delhi / Ahmedabad',
-        waypoints: [
-          { ident: 'BEBIX', type: 'Intersection', lat: 19.750, lon: 72.820, altFt: 16000, info: 'BEBIX Entry' },
-          { ident: 'BB503', type: 'Intersection', lat: 19.350, lon: 72.830, altFt: 8000, info: 'North Approach' },
         ],
       },
     ],
@@ -431,16 +540,18 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'MMV1A',
         type: 'SID',
-        description: 'MMV 1A Departure via Chennai VOR to Bay of Bengal',
+        runways: ['07', '12'],
+        description: 'MMV 1A Departure via East Corridor to Bay of Bengal',
         waypoints: [
           { ident: 'MA401', type: 'Intersection', lat: 13.020, lon: 80.250, altFt: 4500, info: 'East Turn' },
           { ident: 'MMV', type: 'VOR', lat: 12.990, lon: 80.170, altFt: 9000, info: 'Chennai VOR' },
         ],
       },
       {
-        name: 'DOKI1A',
+        name: 'DOKI1B',
         type: 'SID',
-        description: 'DOKID 1A Departure to West / Bengaluru',
+        runways: ['25', '30'],
+        description: 'DOKID 1B Departure to West / Bengaluru',
         waypoints: [
           { ident: 'MA402', type: 'Intersection', lat: 12.950, lon: 79.950, altFt: 6000, info: 'West Exit' },
           { ident: 'DOKID', type: 'Intersection', lat: 12.850, lon: 79.350, altFt: 14000, info: 'DOKID Fix' },
@@ -449,18 +560,20 @@ export const AIRPORT_PROCEDURES: Record<
     ],
     stars: [
       {
-        name: 'DOKI1B',
+        name: 'DOKI1A',
         type: 'STAR',
-        description: 'DOKID 1B Arrival from Bengaluru / South India',
+        runways: ['07', '12'],
+        description: 'DOKID 1A Arrival to Runway 07/12',
         waypoints: [
           { ident: 'DOKID', type: 'Intersection', lat: 12.850, lon: 79.350, altFt: 15000, info: 'DOKID Entry' },
-          { ident: 'MA501', type: 'Intersection', lat: 12.920, lon: 79.850, altFt: 7500, info: 'Base Leg' },
+          { ident: 'MA501', type: 'Intersection', lat: 12.920, lon: 79.850, altFt: 7500, info: 'Straight-in Base' },
         ],
       },
       {
         name: 'IDAS1B',
         type: 'STAR',
-        description: 'IDASO 1B Arrival from North / Hyderabad / Delhi',
+        runways: ['25', '30'],
+        description: 'IDASO 1B Arrival from North to Runway 25/30',
         waypoints: [
           { ident: 'IDASO', type: 'Intersection', lat: 13.650, lon: 80.150, altFt: 14000, info: 'IDASO Entry' },
           { ident: 'MA502', type: 'Intersection', lat: 13.250, lon: 80.160, altFt: 6500, info: 'North Entry' },
@@ -475,6 +588,7 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'SFO9',
         type: 'SID',
+        runways: ['28L', '28R', '01L', '01R'],
         description: 'SFO 9 Departure - Climb via Bay Radar Vectors to Oceanic Fixes',
         waypoints: [
           { ident: 'SFO01', type: 'Intersection', lat: 37.640, lon: -122.340, altFt: 3000, info: 'Bay Turn' },
@@ -484,6 +598,7 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'GAP7',
         type: 'SID',
+        runways: ['28L', '28R'],
         description: 'Golden Gate Seven Departure - Westbound climb past Marin Headlands',
         waypoints: [
           { ident: 'GAP01', type: 'Intersection', lat: 37.680, lon: -122.420, altFt: 4000, info: 'Climb 4,000' },
@@ -493,6 +608,7 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'OFFSH2',
         type: 'SID',
+        runways: ['28L', '28R'],
         description: 'Offshore Two Departure - Southbound Pacific Coast to LAX/SAN',
         waypoints: [
           { ident: 'OFF01', type: 'Intersection', lat: 37.550, lon: -122.480, altFt: 5000, info: 'Coastal Turn' },
@@ -502,19 +618,11 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'TRUKN2',
         type: 'SID',
+        runways: ['28L', '28R'],
         description: 'Truckee Two Departure - Eastbound Sierra Nevada to Reno/Salt Lake',
         waypoints: [
           { ident: 'TRK01', type: 'Intersection', lat: 37.720, lon: -122.250, altFt: 6000, info: 'Eastbound Turn' },
           { ident: 'OAK', type: 'VOR', lat: 37.725, lon: -122.223, altFt: 10000, info: 'Oakland VOR' },
-        ],
-      },
-      {
-        name: 'WESLA5',
-        type: 'SID',
-        description: 'Wesla Five Departure - High Performance Jet Climb',
-        waypoints: [
-          { ident: 'WES01', type: 'Intersection', lat: 37.620, lon: -122.290, altFt: 4000, info: 'San Mateo Vector' },
-          { ident: 'WESLA', type: 'Intersection', lat: 37.450, lon: -122.150, altFt: 12000, info: 'WESLA Waypoint' },
         ],
       },
     ],
@@ -522,6 +630,7 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'BDEGA3',
         type: 'STAR',
+        runways: ['28L', '28R', '19L', '19R'],
         description: 'Bodega Three Arrival from North / Seattle / Portland',
         waypoints: [
           { ident: 'BDEGA', type: 'Intersection', lat: 38.380, lon: -123.000, altFt: 18000, info: 'Bodega Bay Gate' },
@@ -532,20 +641,12 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'DYAMD5',
         type: 'STAR',
+        runways: ['28L', '28R'],
         description: 'Diamond Five Arrival from South / Los Angeles / Phoenix',
         waypoints: [
           { ident: 'DYAMD', type: 'Intersection', lat: 36.850, lon: -121.750, altFt: 17000, info: 'Diamond Fix' },
           { ident: 'SUR', type: 'VOR', lat: 36.310, lon: -121.880, altFt: 13000, info: 'Big Sur VOR' },
           { ident: 'EDDYY', type: 'Intersection', lat: 37.420, lon: -122.180, altFt: 5000, info: 'Bay Intercept' },
-        ],
-      },
-      {
-        name: 'SERFR4',
-        type: 'STAR',
-        description: 'Serfr Four Arrival - Santa Cruz Mountains RNAV',
-        waypoints: [
-          { ident: 'SERFR', type: 'Intersection', lat: 36.950, lon: -121.950, altFt: 15000, info: 'Santa Cruz Entry' },
-          { ident: 'WWAVS', type: 'Intersection', lat: 37.250, lon: -122.250, altFt: 8000, info: 'Peninsula Base' },
         ],
       },
     ],
@@ -557,6 +658,7 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'ORCKA5',
         type: 'SID',
+        runways: ['24L', '24R', '25L', '25R'],
         description: 'Orcka Five Departure - Westbound offshore climb past Catalina',
         waypoints: [
           { ident: 'ORCKA', type: 'Intersection', lat: 33.910, lon: -118.620, altFt: 5000, info: 'Overwater Climb' },
@@ -566,6 +668,7 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'DOTSS2',
         type: 'SID',
+        runways: ['24L', '24R', '25L', '25R'],
         description: 'Dotss Two Departure - Northbound over Santa Monica to Bay Area',
         waypoints: [
           { ident: 'DOTSS', type: 'Intersection', lat: 34.020, lon: -118.520, altFt: 6000, info: 'Santa Monica Turn' },
@@ -575,19 +678,11 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'SEALZ4',
         type: 'SID',
+        runways: ['24L', '24R', '25L', '25R', '06L', '06R', '07L', '07R'],
         description: 'Sealz Four Departure - Southbound to San Diego / Mexico',
         waypoints: [
           { ident: 'SEALZ', type: 'Intersection', lat: 33.720, lon: -118.250, altFt: 6000, info: 'Port of LA Turn' },
           { ident: 'SLI', type: 'VOR', lat: 33.780, lon: -118.050, altFt: 10000, info: 'Seal Beach VOR' },
-        ],
-      },
-      {
-        name: 'CASTA2',
-        type: 'SID',
-        description: 'Castaic Two Departure - Eastbound to Las Vegas / Denver',
-        waypoints: [
-          { ident: 'CAS01', type: 'Intersection', lat: 34.120, lon: -118.350, altFt: 7000, info: 'Inland Vector' },
-          { ident: 'PMD', type: 'VOR', lat: 34.580, lon: -118.060, altFt: 14000, info: 'Palmdale VOR' },
         ],
       },
     ],
@@ -595,6 +690,7 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'ANJLL4',
         type: 'STAR',
+        runways: ['24L', '24R', '25L', '25R'],
         description: 'Angel Four Arrival from North / San Francisco / Seattle',
         waypoints: [
           { ident: 'ANJLL', type: 'Intersection', lat: 34.650, lon: -118.950, altFt: 16000, info: 'Gorman Gate' },
@@ -603,17 +699,9 @@ export const AIRPORT_PROCEDURES: Record<
         ],
       },
       {
-        name: 'IRNMN2',
-        type: 'STAR',
-        description: 'Ironman Two Arrival - Santa Barbara Coastal RNAV',
-        waypoints: [
-          { ident: 'IRNMN', type: 'Intersection', lat: 34.450, lon: -119.550, altFt: 14000, info: 'Channel Arrival' },
-          { ident: 'SYLMR', type: 'Intersection', lat: 34.150, lon: -118.650, altFt: 7000, info: 'Valley Fix' },
-        ],
-      },
-      {
         name: 'HLYWD1',
         type: 'STAR',
+        runways: ['24L', '24R', '25L', '25R'],
         description: 'Hollywood One Arrival from East / Las Vegas / Phoenix',
         waypoints: [
           { ident: 'HLYWD', type: 'Intersection', lat: 34.250, lon: -117.850, altFt: 15000, info: 'San Gabriel Entry' },
@@ -627,9 +715,20 @@ export const AIRPORT_PROCEDURES: Record<
   EGLL: {
     sids: [
       {
+        name: 'BPK7G',
+        type: 'SID',
+        runways: ['09L', '09R'],
+        description: 'Brookmans Park Seven Golf to North via Runway 09',
+        waypoints: [
+          { ident: 'LON03', type: 'Intersection', lat: 51.620, lon: -0.420, altFt: 5000, info: 'North Climb' },
+          { ident: 'BPK', type: 'VOR', lat: 51.720, lon: -0.110, altFt: 10000, info: 'Brookmans Park VOR' },
+        ],
+      },
+      {
         name: 'CPT3G',
         type: 'SID',
-        description: 'Compton Three Golf Departure to West / Wales / Atlantic',
+        runways: ['27L', '27R'],
+        description: 'Compton Three Golf Departure to West via Runway 27',
         waypoints: [
           { ident: 'LON01', type: 'Intersection', lat: 51.480, lon: -0.620, altFt: 4000, info: 'Slough Turn' },
           { ident: 'CPT', type: 'VOR', lat: 51.490, lon: -1.220, altFt: 9000, info: 'Compton VOR' },
@@ -638,19 +737,11 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'DVR4G',
         type: 'SID',
-        description: 'Dover Four Golf Departure to Southeast / France / Europe',
+        runways: ['09L', '09R', '27L', '27R'],
+        description: 'Dover Four Golf Departure to Southeast / Europe',
         waypoints: [
           { ident: 'LON02', type: 'Intersection', lat: 51.350, lon: -0.350, altFt: 5000, info: 'Surrey Climb' },
           { ident: 'DVR', type: 'VOR', lat: 51.160, lon: 1.350, altFt: 12000, info: 'Dover VOR' },
-        ],
-      },
-      {
-        name: 'BPK7G',
-        type: 'SID',
-        description: 'Brookmans Park Seven Golf to North / Scotland',
-        waypoints: [
-          { ident: 'LON03', type: 'Intersection', lat: 51.620, lon: -0.420, altFt: 5000, info: 'North Climb' },
-          { ident: 'BPK', type: 'VOR', lat: 51.720, lon: -0.110, altFt: 10000, info: 'Brookmans Park VOR' },
         ],
       },
     ],
@@ -658,25 +749,18 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'LAM3A',
         type: 'STAR',
-        description: 'Lambourne Three Alpha Arrival from East / Europe',
+        runways: ['09L', '09R'],
+        description: 'Lambourne Three Alpha Arrival to Runway 09',
         waypoints: [
           { ident: 'LAM', type: 'VOR', lat: 51.640, lon: 0.150, altFt: 11000, info: 'Lambourne Hold' },
           { ident: 'LON04', type: 'Intersection', lat: 51.520, lon: -0.150, altFt: 5000, info: 'Central London Leg' },
         ],
       },
       {
-        name: 'OCK1A',
-        type: 'STAR',
-        description: 'Ockham One Alpha Arrival from South / Spain',
-        waypoints: [
-          { ident: 'OCK', type: 'VOR', lat: 51.300, lon: -0.440, altFt: 10000, info: 'Ockham Hold' },
-          { ident: 'LON05', type: 'Intersection', lat: 51.420, lon: -0.450, altFt: 4500, info: 'Base Turn' },
-        ],
-      },
-      {
         name: 'BOV3A',
         type: 'STAR',
-        description: 'Bovingdon Three Alpha Arrival from North / Atlantic',
+        runways: ['27L', '27R'],
+        description: 'Bovingdon Three Alpha Arrival to Runway 27',
         waypoints: [
           { ident: 'BNN', type: 'VOR', lat: 51.720, lon: -0.540, altFt: 12000, info: 'Bovingdon Hold' },
           { ident: 'LON06', type: 'Intersection', lat: 51.550, lon: -0.520, altFt: 6000, info: 'North Base' },
@@ -691,7 +775,8 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'DESDI2D',
         type: 'SID',
-        description: 'DESDI 2D Departure to South / Oman / India',
+        runways: ['12L', '12R'],
+        description: 'DESDI 2D Departure to South via Runway 12',
         waypoints: [
           { ident: 'DB401', type: 'Intersection', lat: 25.150, lon: 55.450, altFt: 4000, info: 'Desert Turn' },
           { ident: 'DESDI', type: 'Intersection', lat: 24.750, lon: 55.650, altFt: 12000, info: 'DESDI Fix' },
@@ -700,19 +785,21 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'KABAN2D',
         type: 'SID',
-        description: 'KABAN 2D Departure over Arabian Gulf to Europe',
+        runways: ['12L', '12R'],
+        description: 'KABAN 2D Departure over Arabian Gulf via Runway 12',
         waypoints: [
           { ident: 'DB402', type: 'Intersection', lat: 25.380, lon: 55.250, altFt: 5000, info: 'Coastal Climb' },
           { ident: 'KABAN', type: 'Intersection', lat: 25.850, lon: 54.950, altFt: 14000, info: 'KABAN Fix' },
         ],
       },
       {
-        name: 'NABIX2D',
+        name: 'SENAP2D',
         type: 'SID',
-        description: 'NABIX 2D Departure to East / Asia',
+        runways: ['30L', '30R'],
+        description: 'SENAP 2D Departure via Runway 30',
         waypoints: [
-          { ident: 'DB403', type: 'Intersection', lat: 25.220, lon: 55.600, altFt: 5500, info: 'Hajar Vector' },
-          { ident: 'NABIX', type: 'Intersection', lat: 25.100, lon: 56.100, altFt: 13000, info: 'NABIX Fix' },
+          { ident: 'DB403', type: 'Intersection', lat: 25.350, lon: 55.300, altFt: 5000, info: 'West Exit' },
+          { ident: 'SENAP', type: 'Intersection', lat: 25.550, lon: 54.850, altFt: 13000, info: 'SENAP Fix' },
         ],
       },
     ],
@@ -720,19 +807,21 @@ export const AIRPORT_PROCEDURES: Record<
       {
         name: 'DESDI2A',
         type: 'STAR',
-        description: 'DESDI 2A Arrival from India / Indian Ocean',
+        runways: ['12L', '12R'],
+        description: 'DESDI 2A Arrival to Runway 12',
         waypoints: [
           { ident: 'DESDI', type: 'Intersection', lat: 24.750, lon: 55.650, altFt: 15000, info: 'DESDI Entry' },
           { ident: 'DB501', type: 'Intersection', lat: 25.100, lon: 55.500, altFt: 7000, info: 'Downwind Base' },
         ],
       },
       {
-        name: 'KABAN2A',
+        name: 'DARAX2A',
         type: 'STAR',
-        description: 'KABAN 2A Arrival from Europe / West',
+        runways: ['30L', '30R'],
+        description: 'DARAX 2A Arrival to Runway 30',
         waypoints: [
-          { ident: 'KABAN', type: 'Intersection', lat: 25.850, lon: 54.950, altFt: 16000, info: 'Gulf Entry' },
-          { ident: 'DB502', type: 'Intersection', lat: 25.420, lon: 55.200, altFt: 6500, info: 'Coastal Intercept' },
+          { ident: 'DARAX', type: 'Intersection', lat: 25.050, lon: 55.850, altFt: 14000, info: 'DARAX Entry' },
+          { ident: 'DB503', type: 'Intersection', lat: 25.150, lon: 55.550, altFt: 6000, info: 'Base Turn 30' },
         ],
       },
     ],
@@ -740,101 +829,143 @@ export const AIRPORT_PROCEDURES: Record<
 };
 
 /**
- * Procedurally generates standard authentic SIDs radiating across compass bearings
+ * Procedurally generates authentic runway-specific SIDs radiating outward from each runway
  */
 function generateProceduralSids(airport: Airport): ProcedureOption[] {
   const directions = [
-    { code: 'NTH', bearing: 0, name: 'North Departure' },
-    { code: 'NET', bearing: 45, name: 'Northeast Departure' },
-    { code: 'EST', bearing: 90, name: 'East Departure' },
-    { code: 'SET', bearing: 135, name: 'Southeast Departure' },
-    { code: 'STH', bearing: 180, name: 'South Departure' },
-    { code: 'SWT', bearing: 225, name: 'Southwest Departure' },
-    { code: 'WST', bearing: 270, name: 'West Departure' },
-    { code: 'NWT', bearing: 315, name: 'Northwest Departure' },
+    { code: 'N', bearing: 0, name: 'North Departure' },
+    { code: 'E', bearing: 90, name: 'East Departure' },
+    { code: 'S', bearing: 180, name: 'South Departure' },
+    { code: 'W', bearing: 270, name: 'West Departure' },
+    { code: 'NE', bearing: 45, name: 'Northeast Departure' },
+    { code: 'NW', bearing: 315, name: 'Northwest Departure' },
+    { code: 'SE', bearing: 135, name: 'Southeast Departure' },
+    { code: 'SW', bearing: 225, name: 'Southwest Departure' },
   ];
 
-  return directions.slice(0, 6).map((d, idx) => {
-    const fix1Coords = projectCoordinates(airport.lat, airport.lon, d.bearing, 10);
-    const fix2Coords = projectCoordinates(airport.lat, airport.lon, d.bearing, 25);
-    const rwy = airport.runways[idx % airport.runways.length];
+  const sids: ProcedureOption[] = [];
 
-    return {
-      name: `${airport.icao.slice(1)}${idx + 1}${d.code[0]}`,
-      type: 'SID',
-      runway: rwy.ident,
-      description: `${d.name} via ${d.code} Radial (${d.bearing}°)`,
-      waypoints: [
-        {
-          ident: `${airport.icao.slice(1)}D${idx + 1}`,
-          type: 'Intersection',
-          lat: fix1Coords.lat,
-          lon: fix1Coords.lon,
-          altFt: airport.elevation + 4000,
-          info: `Initial Climb on ${d.bearing}°`,
-        },
-        {
-          ident: `${d.code}EX`,
-          type: 'Intersection',
-          lat: fix2Coords.lat,
-          lon: fix2Coords.lon,
-          altFt: Math.min(airport.elevation + 12000, 16000),
-          info: `${d.code} Exit Gateway`,
-        },
-      ],
-    };
+  airport.runways.forEach((rwy, rIdx) => {
+    // Generate directional SIDs radiating from this runway's heading
+    const relativeBearings = [
+      rwy.heading,
+      (rwy.heading + 40) % 360,
+      (rwy.heading + 320) % 360,
+      (rwy.heading + 90) % 360,
+    ];
+
+    relativeBearings.forEach((brg, bIdx) => {
+      const dirMatch = directions.reduce((prev, curr) => {
+        const diffPrev = Math.abs(prev.bearing - brg);
+        const diffCurr = Math.abs(curr.bearing - brg);
+        return diffCurr < diffPrev ? curr : prev;
+      });
+
+      const fix1 = projectCoordinates(airport.lat, airport.lon, brg, 10);
+      const fix2 = projectCoordinates(airport.lat, airport.lon, brg, 24);
+      const sidName = `${rwy.ident.replace(/[^0-9]/g, '')}${dirMatch.code}${bIdx + 1}`;
+
+      sids.push({
+        name: sidName,
+        type: 'SID',
+        runway: rwy.ident,
+        description: `${dirMatch.name} from Runway ${rwy.ident} via ${brg}° Radial`,
+        waypoints: [
+          {
+            ident: `${rwy.ident}D${bIdx + 1}`,
+            type: 'Intersection',
+            lat: fix1.lat,
+            lon: fix1.lon,
+            altFt: airport.elevation + 3500,
+            info: `Initial Climb Vector ${brg}°`,
+          },
+          {
+            ident: `${dirMatch.code}EX${rIdx + 1}`,
+            type: 'Intersection',
+            lat: fix2.lat,
+            lon: fix2.lon,
+            altFt: Math.min(airport.elevation + 11000, 16000),
+            info: `${dirMatch.code} Exit Gate`,
+          },
+        ],
+      });
+    });
   });
+
+  return sids;
 }
 
 /**
- * Procedurally generates standard authentic STARs converging into the airport
+ * Procedurally generates authentic runway-specific STARs converging into each runway
  */
 function generateProceduralStars(airport: Airport): ProcedureOption[] {
   const directions = [
-    { code: 'NTH', bearing: 0, name: 'North Arrival' },
-    { code: 'EST', bearing: 90, name: 'East Arrival' },
-    { code: 'STH', bearing: 180, name: 'South Arrival' },
-    { code: 'WST', bearing: 270, name: 'West Arrival' },
-    { code: 'NET', bearing: 45, name: 'Northeast Arrival' },
-    { code: 'SWT', bearing: 225, name: 'Southwest Arrival' },
+    { code: 'N', bearing: 0, name: 'North Arrival' },
+    { code: 'E', bearing: 90, name: 'East Arrival' },
+    { code: 'S', bearing: 180, name: 'South Arrival' },
+    { code: 'W', bearing: 270, name: 'West Arrival' },
+    { code: 'NE', bearing: 45, name: 'Northeast Arrival' },
+    { code: 'NW', bearing: 315, name: 'Northwest Arrival' },
+    { code: 'SE', bearing: 135, name: 'Southeast Arrival' },
+    { code: 'SW', bearing: 225, name: 'Southwest Arrival' },
   ];
 
-  return directions.map((d, idx) => {
-    const entryCoords = projectCoordinates(airport.lat, airport.lon, d.bearing, 32);
-    const baseCoords = projectCoordinates(airport.lat, airport.lon, (d.bearing + 20) % 360, 15);
-    const rwy = airport.runways[idx % airport.runways.length];
+  const stars: ProcedureOption[] = [];
 
-    return {
-      name: `${airport.icao.slice(1)}${idx + 1}${d.code[0]}A`,
-      type: 'STAR',
-      runway: rwy.ident,
-      description: `${d.name} from ${d.bearing}° Gateway to Runway ${rwy.ident}`,
-      waypoints: [
-        {
-          ident: `${d.code}IN`,
-          type: 'Intersection',
-          lat: entryCoords.lat,
-          lon: entryCoords.lon,
-          altFt: 16000,
-          info: `${d.code} Inbound Transition`,
-        },
-        {
-          ident: `${airport.icao.slice(1)}A${idx + 1}`,
-          type: 'Intersection',
-          lat: baseCoords.lat,
-          lon: baseCoords.lon,
-          altFt: Math.max(airport.elevation + 4500, 6000),
-          info: 'Intermediate Downwind / Base',
-        },
-      ],
-    };
+  airport.runways.forEach((rwy, rIdx) => {
+    // Arrival enters from opposite direction towards the runway touchdown zone
+    const backCourse = (rwy.heading + 180) % 360;
+    const entryBearings = [
+      backCourse,
+      (backCourse + 40) % 360,
+      (backCourse + 320) % 360,
+      (backCourse + 90) % 360,
+    ];
+
+    entryBearings.forEach((brg, bIdx) => {
+      const dirMatch = directions.reduce((prev, curr) => {
+        const diffPrev = Math.abs(prev.bearing - brg);
+        const diffCurr = Math.abs(curr.bearing - brg);
+        return diffCurr < diffPrev ? curr : prev;
+      });
+
+      const entryFix = projectCoordinates(airport.lat, airport.lon, brg, 30);
+      const baseFix = projectCoordinates(airport.lat, airport.lon, (brg + 15) % 360, 14);
+      const starName = `${dirMatch.code}${rwy.ident.replace(/[^0-9]/g, '')}${String.fromCharCode(65 + bIdx)}`;
+
+      stars.push({
+        name: starName,
+        type: 'STAR',
+        runway: rwy.ident,
+        description: `${dirMatch.name} to Runway ${rwy.ident} via ${brg}° Inbound`,
+        waypoints: [
+          {
+            ident: `${dirMatch.code}IN${rIdx + 1}`,
+            type: 'Intersection',
+            lat: entryFix.lat,
+            lon: entryFix.lon,
+            altFt: 15000,
+            info: `${dirMatch.code} Transition Gateway`,
+          },
+          {
+            ident: `${rwy.ident}A${bIdx + 1}`,
+            type: 'Intersection',
+            lat: baseFix.lat,
+            lon: baseFix.lon,
+            altFt: Math.max(airport.elevation + 4500, 6000),
+            info: `Downwind / Base to Runway ${rwy.ident}`,
+          },
+        ],
+      });
+    });
   });
+
+  return stars;
 }
 
 /**
- * Retrieves all procedures for an airport (SIDs, STARs, and Runway Approaches)
- * User preference: Returns all authentic SIDs and STARs across the airport,
- * allowing manual selection of any procedure regardless of active runway.
+ * Retrieves all procedures for an airport (SIDs, STARs, and Runway Approaches).
+ * Procedures are associated with specific runways.
  */
 export function getProceduresForAirport(
   airport: Airport,
@@ -853,12 +984,11 @@ export function getProceduresForAirport(
     approaches.push(generateRunwayApproach(airport, rwy, 'RNAV'));
   });
 
-  // Ensure at least one approach exists
   if (approaches.length === 0 && airport.runways.length > 0) {
     approaches.push(generateRunwayApproach(airport, airport.runways[0], 'VISUAL'));
   }
 
-  // 2. Check if we have curated procedures for this airport
+  // 2. Curated procedures
   const curated = AIRPORT_PROCEDURES[airport.icao];
   if (curated) {
     return {
@@ -868,7 +998,7 @@ export function getProceduresForAirport(
     };
   }
 
-  // 3. Fallback: Procedurally generate rich SIDs and STARs for any airport in the global dataset
+  // 3. Procedurally generated runway-specific SIDs and STARs
   return {
     sids: generateProceduralSids(airport),
     stars: generateProceduralStars(airport),

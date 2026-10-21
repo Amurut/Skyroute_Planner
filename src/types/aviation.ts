@@ -49,6 +49,7 @@ export interface ProcedureOption {
   name: string;
   type: 'SID' | 'STAR' | 'APPROACH';
   runway?: string;
+  runways?: string[];
   transitionFix?: string;
   description: string;
   waypoints: Omit<Waypoint, 'phase'>[];

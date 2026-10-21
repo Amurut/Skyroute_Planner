@@ -44,16 +44,20 @@ export const App: React.FC = () => {
     approachName?: string;
   }) => {
     if (!flightPlan) return;
+
+    const depRwyChanged = !!(updates.depRwyIdent && updates.depRwyIdent !== flightPlan.originRunway.ident);
+    const arrRwyChanged = !!(updates.arrRwyIdent && updates.arrRwyIdent !== flightPlan.destRunway.ident);
+
     const updatedPlan = await generateFlightPlan(
       flightPlan.origin,
       flightPlan.destination,
       simbriefUsername,
       {
         depRwyIdent: updates.depRwyIdent || flightPlan.originRunway.ident,
-        sidName: updates.sidName || flightPlan.sid,
+        sidName: depRwyChanged ? undefined : (updates.sidName || flightPlan.sid),
         arrRwyIdent: updates.arrRwyIdent || flightPlan.destRunway.ident,
-        starName: updates.starName || flightPlan.star,
-        approachName: updates.approachName || flightPlan.approach,
+        starName: arrRwyChanged ? undefined : (updates.starName || flightPlan.star),
+        approachName: arrRwyChanged ? undefined : (updates.approachName || flightPlan.approach),
       }
     );
     setFlightPlan(updatedPlan);

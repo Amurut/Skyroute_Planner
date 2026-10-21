@@ -4,6 +4,7 @@ import {
   getRunwayThresholdCoords,
   getRunwayDepartureEndCoords,
   projectCoordinates,
+  isProcedureForRunway,
 } from '../data/procedures';
 
 /**
@@ -24,7 +25,8 @@ export function calculateDistanceNm(lat1: number, lon1: number, lat2: number, lo
 }
 
 /**
- * Generates an end-to-end flight plan with selectable SIDs, STARs, and Runway Approaches
+ * Generates an end-to-end flight plan with selectable SIDs, STARs, and Runway Approaches.
+ * SIDs, STARs, and Approaches are strictly filtered to the active departure and arrival runways.
  */
 export async function generateFlightPlan(
   origin: Airport,
@@ -41,32 +43,48 @@ export async function generateFlightPlan(
   const originProcedures = getProceduresForAirport(origin, 'origin');
   const destProcedures = getProceduresForAirport(destination, 'dest');
 
-  const availableSids = originProcedures.sids;
-  const availableStars = destProcedures.stars;
-  const availableApproaches = destProcedures.approaches;
-
-  // 1. Resolve Departure Runway & SID
+  // 1. Resolve Departure Runway & Strictly Filter Available SIDs
   const originRunway =
     (options?.depRwyIdent && origin.runways.find((r) => r.ident === options.depRwyIdent)) ||
     origin.runways[0];
 
+  const candidateSids = originProcedures.sids.filter((s) => isProcedureForRunway(s, originRunway.ident));
+  const availableSids = candidateSids.length > 0 ? candidateSids : originProcedures.sids;
+
   const selectedSid =
     (options?.sidName && availableSids.find((s) => s.name === options.sidName)) ||
-    availableSids.find((s) => s.runway === originRunway.ident) ||
     availableSids[0];
 
-  // 2. Resolve Arrival Runway & Approach
-  const destRunway =
-    (options?.arrRwyIdent && destination.runways.find((r) => r.ident === options.arrRwyIdent)) ||
-    destination.runways.find((r) => r.ils) ||
-    destination.runways[0];
+  // 2. Resolve Arrival Runway & Strictly Filter Available Approaches & STARs
+  let destRunway =
+    options?.arrRwyIdent
+      ? destination.runways.find((r) => r.ident === options.arrRwyIdent)
+      : undefined;
+
+  if (!destRunway && options?.approachName) {
+    const matchedApp = destProcedures.approaches.find((a) => a.name === options.approachName);
+    if (matchedApp?.runway) {
+      destRunway = destination.runways.find((r) => r.ident === matchedApp.runway);
+    }
+  }
+
+  if (!destRunway) {
+    destRunway = destination.runways.find((r) => r.ils) || destination.runways[0];
+  }
+
+  // Filter Approaches strictly for selected Arrival Runway
+  const candidateApproaches = destProcedures.approaches.filter((a) => isProcedureForRunway(a, destRunway.ident));
+  const availableApproaches = candidateApproaches.length > 0 ? candidateApproaches : destProcedures.approaches;
 
   const selectedApproach =
     (options?.approachName && availableApproaches.find((a) => a.name === options.approachName)) ||
-    availableApproaches.find((a) => a.runway === destRunway.ident) ||
+    availableApproaches.find((a) => a.name.startsWith('ILS')) ||
     availableApproaches[0];
 
-  // 3. Resolve STAR
+  // Filter STARs strictly for selected Arrival Runway
+  const candidateStars = destProcedures.stars.filter((s) => isProcedureForRunway(s, destRunway.ident));
+  const availableStars = candidateStars.length > 0 ? candidateStars : destProcedures.stars;
+
   const selectedStar =
     (options?.starName && availableStars.find((s) => s.name === options.starName)) ||
     availableStars[0];
