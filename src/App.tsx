@@ -15,10 +15,10 @@ export const App: React.FC = () => {
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [simbriefUsername, setSimbriefUsername] = useState('');
 
-  // Initial load: KSFO -> KLAX California Express
+  // Initial load: Bangalore (VOBL) -> Mumbai (VABB) Deccan Express
   useEffect(() => {
-    const origin = GLOBAL_AIRPORTS[0]; // KSFO
-    const dest = GLOBAL_AIRPORTS[1]; // KLAX
+    const origin = GLOBAL_AIRPORTS.find((a) => a.icao === 'VOBL') || GLOBAL_AIRPORTS[0];
+    const dest = GLOBAL_AIRPORTS.find((a) => a.icao === 'VABB') || GLOBAL_AIRPORTS[1];
     generateFlightPlan(origin, dest).then(setFlightPlan);
   }, []);
 

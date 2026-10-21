@@ -1,5 +1,10 @@
 import { Airport, FlightPlan, Waypoint } from '../types/aviation';
-import { getProceduresForAirport } from '../data/procedures';
+import {
+  getProceduresForAirport,
+  getRunwayThresholdCoords,
+  getRunwayDepartureEndCoords,
+  projectCoordinates,
+} from '../data/procedures';
 
 /**
  * Calculates Great Circle distance between two lat/lon coordinates in Nautical Miles
@@ -70,15 +75,37 @@ export async function generateFlightPlan(
   const crzAlt = distance > 500 ? 36000 : distance > 250 ? 33000 : 21000;
 
   // 4. Assemble the multi-phase waypoint sequence:
-  // Phase 1: Origin Airport & Runway
+  // Phase 1: Origin Runway Alignment (Exact Threshold -> Liftoff Departure End -> Initial Climb Vector)
+  const depThreshold = getRunwayThresholdCoords(origin, originRunway);
+  const depEnd = getRunwayDepartureEndCoords(origin, originRunway);
+  const depClimbOut = projectCoordinates(depEnd.lat, depEnd.lon, originRunway.heading, 2.2);
+
   const allWaypoints: Waypoint[] = [
     {
-      ident: origin.icao,
+      ident: `RW${originRunway.ident}`,
       type: 'Airport',
-      lat: origin.lat,
-      lon: origin.lon,
+      lat: depThreshold.lat,
+      lon: depThreshold.lon,
       altFt: origin.elevation,
-      info: `Origin Runway ${originRunway.ident}`,
+      info: `Runway ${originRunway.ident} Takeoff Threshold`,
+      phase: 'sid',
+    },
+    {
+      ident: `RW${originRunway.ident}-END`,
+      type: 'Intersection',
+      lat: depEnd.lat,
+      lon: depEnd.lon,
+      altFt: origin.elevation + 150,
+      info: `Runway ${originRunway.ident} Departure End (Liftoff)`,
+      phase: 'sid',
+    },
+    {
+      ident: `CLB${originRunway.ident}`,
+      type: 'Intersection',
+      lat: depClimbOut.lat,
+      lon: depClimbOut.lon,
+      altFt: origin.elevation + 1800,
+      info: `Initial Climb Vector (Hdg ${originRunway.heading}°)`,
       phase: 'sid',
     },
   ];

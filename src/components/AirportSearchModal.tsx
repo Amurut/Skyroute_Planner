@@ -37,11 +37,14 @@ export const AirportSearchModal: React.FC<AirportSearchModalProps> = ({
   );
 
   const presets = [
+    { label: 'Deccan Express (VOBL → VABB)', dep: 'VOBL', arr: 'VABB' },
+    { label: 'Capital Shuttle (VOBL → VIDP)', dep: 'VOBL', arr: 'VIDP' },
+    { label: 'Southern Cross (VOHS → VOMM)', dep: 'VOHS', arr: 'VOMM' },
     { label: 'California Express (KSFO → KLAX)', dep: 'KSFO', arr: 'KLAX' },
     { label: 'Trans-Channel Hopper (EGLL → LFPG)', dep: 'EGLL', arr: 'LFPG' },
     { label: 'East Coast Corridor (KJFK → KMIA)', dep: 'KJFK', arr: 'KMIA' },
     { label: 'Alpine Valley Challenge (EDDF → LOWI)', dep: 'EDDF', arr: 'LOWI' },
-    { label: 'Caribbean Holiday (KMIA → TNCM)', dep: 'KMIA', arr: 'TNCM' },
+    { label: 'Gulf Shuttle (OMDB → OTHH)', dep: 'OMDB', arr: 'OTHH' },
   ];
 
   const handleApplyPreset = (depCode: string, arrCode: string) => {
@@ -140,7 +143,7 @@ export const AirportSearchModal: React.FC<AirportSearchModalProps> = ({
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="Filter by ICAO, IATA, or City Name (e.g. SFO, London, Dubai)..."
+                  placeholder="Search 500+ global & Indian airports (e.g. Bangalore, VOBL, DEL, London, SFO)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 rounded-xl bg-black/40 border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-primary"
@@ -168,7 +171,7 @@ export const AirportSearchModal: React.FC<AirportSearchModalProps> = ({
 
             {/* Airport List */}
             <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-              {filteredAirports.map((apt) => (
+              {filteredAirports.slice(0, 50).map((apt) => (
                 <div
                   key={apt.icao}
                   className="p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.04] flex items-center justify-between transition-colors text-xs"

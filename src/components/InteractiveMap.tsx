@@ -125,74 +125,84 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
       const isOrigin = apt.icao === flightPlan.origin.icao;
       const isDest = apt.icao === flightPlan.destination.icao;
 
-      let markerColor = '#4cd7f6';
-      let radius = 6;
-      if (isOrigin) {
-        markerColor = '#4edea3';
-        radius = 9;
-      } else if (isDest) {
-        markerColor = '#ffb95f';
-        radius = 9;
+      const buildPopupContent = () => {
+        const rwyListHtml = apt.runways
+          .slice(0, 4)
+          .map(
+            (r) =>
+              `<div style="display:flex;justify-content:space-between;font-family:monospace;font-size:10px;margin-top:2px;">
+                <span style="color:#4cd7f6;font-weight:bold;">RWY ${r.ident}</span>
+                <span style="color:#a2b0ba;">${r.lengthFt.toLocaleString()} FT</span>
+                ${r.ils ? `<span style="color:#4edea3;">ILS ${r.ils.freq}</span>` : '<span style="color:#7a8790;">VISUAL</span>'}
+              </div>`
+          )
+          .join('');
+
+        const popupContent = document.createElement('div');
+        popupContent.style.minWidth = '230px';
+        popupContent.innerHTML = `
+          <div style="font-family:sans-serif;padding:2px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;margin-bottom:6px;">
+              <span style="font-size:14px;font-weight:bold;color:#f0f3ff;font-family:monospace;">${apt.icao} / ${apt.iata}</span>
+              <span style="font-size:10px;color:#4cd7f6;font-family:monospace;">Elev ${apt.elevation}'</span>
+            </div>
+            <div style="font-size:11px;color:#a2b0ba;margin-bottom:6px;">${apt.name} (${apt.city}, ${apt.country})</div>
+            <div style="margin-bottom:8px;background:rgba(0,0,0,0.3);padding:4px 6px;border-radius:6px;">
+              ${rwyListHtml}
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button id="btn-set-dep-${apt.icao}" style="flex:1;padding:4px 8px;background:#4edea3;color:#003824;font-size:10px;font-weight:bold;font-family:monospace;border:none;border-radius:6px;cursor:pointer;">Set Origin</button>
+              <button id="btn-set-arr-${apt.icao}" style="flex:1;padding:4px 8px;background:#ffb95f;color:#472a00;font-size:10px;font-weight:bold;font-family:monospace;border:none;border-radius:6px;cursor:pointer;">Set Dest</button>
+            </div>
+          </div>
+        `;
+        return popupContent;
+      };
+
+      if (isOrigin || isDest) {
+        const markerColor = isOrigin ? '#4edea3' : '#ffb95f';
+        const radius = 9;
+        const icon = L.divIcon({
+          className: 'custom-airport-icon',
+          html: `<div style="
+            width: ${radius * 2}px;
+            height: ${radius * 2}px;
+            background: ${markerColor};
+            border-radius: 50%;
+            border: 2px solid #060910;
+            box-shadow: 0 0 16px ${markerColor};
+            cursor: pointer;
+          "></div>`,
+          iconSize: [radius * 2, radius * 2],
+          iconAnchor: [radius, radius],
+        });
+
+        const marker = L.marker([apt.lat, apt.lon], { icon, zIndexOffset: 1000 });
+        marker.bindPopup(buildPopupContent);
+        marker.on('popupopen', () => {
+          const btnDep = document.getElementById(`btn-set-dep-${apt.icao}`);
+          const btnArr = document.getElementById(`btn-set-arr-${apt.icao}`);
+          if (btnDep) btnDep.onclick = () => onSelectAirport(apt, 'origin');
+          if (btnArr) btnArr.onclick = () => onSelectAirport(apt, 'dest');
+        });
+        airportLayer.addLayer(marker);
+      } else {
+        const circle = L.circleMarker([apt.lat, apt.lon], {
+          radius: 3.5,
+          fillColor: '#4cd7f6',
+          color: '#060910',
+          weight: 1.5,
+          fillOpacity: 0.8,
+        });
+        circle.bindPopup(buildPopupContent);
+        circle.on('popupopen', () => {
+          const btnDep = document.getElementById(`btn-set-dep-${apt.icao}`);
+          const btnArr = document.getElementById(`btn-set-arr-${apt.icao}`);
+          if (btnDep) btnDep.onclick = () => onSelectAirport(apt, 'origin');
+          if (btnArr) btnArr.onclick = () => onSelectAirport(apt, 'dest');
+        });
+        airportLayer.addLayer(circle);
       }
-
-      const icon = L.divIcon({
-        className: 'custom-airport-icon',
-        html: `<div style="
-          width: ${radius * 2}px;
-          height: ${radius * 2}px;
-          background: ${markerColor};
-          border-radius: 50%;
-          border: 2px solid #060910;
-          box-shadow: 0 0 ${isOrigin || isDest ? '12px' : '4px'} ${markerColor};
-          cursor: pointer;
-        "></div>`,
-        iconSize: [radius * 2, radius * 2],
-        iconAnchor: [radius, radius],
-      });
-
-      const marker = L.marker([apt.lat, apt.lon], { icon });
-
-      // Interactive popup
-      const rwyListHtml = apt.runways
-        .slice(0, 3)
-        .map(
-          (r) =>
-            `<div style="display:flex;justify-content:space-between;font-family:monospace;font-size:10px;margin-top:2px;">
-              <span style="color:#4cd7f6;font-weight:bold;">RWY ${r.ident}</span>
-              <span style="color:#a2b0ba;">${r.lengthFt.toLocaleString()} FT</span>
-              ${r.ils ? `<span style="color:#4edea3;">ILS ${r.ils.freq}</span>` : '<span style="color:#7a8790;">VISUAL</span>'}
-            </div>`
-        )
-        .join('');
-
-      const popupContent = document.createElement('div');
-      popupContent.style.minWidth = '220px';
-      popupContent.innerHTML = `
-        <div style="font-family:sans-serif;padding:2px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:4px;margin-bottom:6px;">
-            <span style="font-size:14px;font-weight:bold;color:#f0f3ff;font-family:monospace;">${apt.icao} / ${apt.iata}</span>
-            <span style="font-size:10px;color:#4cd7f6;font-family:monospace;">Elev ${apt.elevation}'</span>
-          </div>
-          <div style="font-size:11px;color:#a2b0ba;margin-bottom:6px;">${apt.name} (${apt.city})</div>
-          <div style="margin-bottom:8px;background:rgba(0,0,0,0.3);padding:4px 6px;border-radius:6px;">
-            ${rwyListHtml}
-          </div>
-          <div style="display:flex;gap:6px;">
-            <button id="btn-set-dep-${apt.icao}" style="flex:1;padding:4px 8px;background:#4edea3;color:#003824;font-size:10px;font-weight:bold;font-family:monospace;border:none;border-radius:6px;cursor:pointer;">Set Origin</button>
-            <button id="btn-set-arr-${apt.icao}" style="flex:1;padding:4px 8px;background:#ffb95f;color:#472a00;font-size:10px;font-weight:bold;font-family:monospace;border:none;border-radius:6px;cursor:pointer;">Set Dest</button>
-          </div>
-        </div>
-      `;
-
-      marker.bindPopup(popupContent);
-      marker.on('popupopen', () => {
-        const btnDep = document.getElementById(`btn-set-dep-${apt.icao}`);
-        const btnArr = document.getElementById(`btn-set-arr-${apt.icao}`);
-        if (btnDep) btnDep.onclick = () => onSelectAirport(apt, 'origin');
-        if (btnArr) btnArr.onclick = () => onSelectAirport(apt, 'dest');
-      });
-
-      airportLayer.addLayer(marker);
     });
 
     // 2. Draw Multi-Phase Color-Coded Polylines (SID, Enroute, STAR, Approach)
@@ -239,30 +249,65 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ flightPlan, onSe
 
     // 3. Draw Waypoint Markers along Route
     wps.forEach((wp) => {
-      const isOrigin = wp.ident === flightPlan.origin.icao;
-      const isDest = wp.ident === flightPlan.destination.icao;
-      if (isOrigin || isDest) return; // Handled by airport markers
+      const isOriginApt = wp.ident === flightPlan.origin.icao;
+      const isDestApt = wp.ident === flightPlan.destination.icao;
+      if (isOriginApt || isDestApt) return; // Handled by airport markers
 
       const color = PHASE_COLORS[wp.phase || 'enroute'] || '#4cd7f6';
+      const isRwyThreshold = wp.ident.startsWith('RW') && !wp.ident.includes('-END');
+      const isRwyEnd = wp.ident.includes('-END');
 
-      const wpIcon = L.divIcon({
-        className: 'custom-wp-icon',
-        html: `<div style="
+      let iconHtml = '';
+      let iconSize: [number, number] = [10, 10];
+      let iconAnchor: [number, number] = [5, 5];
+
+      if (isRwyThreshold) {
+        iconSize = [12, 12];
+        iconAnchor = [6, 6];
+        iconHtml = `<div style="
+          width: 12px;
+          height: 12px;
+          background: ${color};
+          border: 2px solid #ffffff;
+          border-radius: 2px;
+          box-shadow: 0 0 10px ${color};
+        "></div>`;
+      } else if (isRwyEnd) {
+        iconSize = [8, 8];
+        iconAnchor = [4, 4];
+        iconHtml = `<div style="
+          width: 8px;
+          height: 8px;
+          background: ${color};
+          border: 1px solid #ffffff;
+          border-radius: 50%;
+        "></div>`;
+      } else {
+        iconHtml = `<div style="
           width: ${wp.phase === 'approach' ? '10px' : '8px'};
           height: ${wp.phase === 'approach' ? '10px' : '8px'};
           background: ${color};
           transform: rotate(45deg);
           border: 1px solid #060910;
           box-shadow: 0 0 8px ${color};
-        "></div>`,
-        iconSize: [10, 10],
-        iconAnchor: [5, 5],
+        "></div>`;
+      }
+
+      const wpIcon = L.divIcon({
+        className: 'custom-wp-icon',
+        html: iconHtml,
+        iconSize,
+        iconAnchor,
       });
 
       const wpMarker = L.marker([wp.lat, wp.lon], { icon: wpIcon });
+      const altDisplay = wp.altFt <= Math.max(flightPlan.origin.elevation, flightPlan.destination.elevation) + 300
+        ? `${wp.altFt}' GND`
+        : `FL${Math.round(wp.altFt / 100)}`;
+
       wpMarker.bindTooltip(
         `<div style="font-family:monospace;font-size:10px;font-weight:bold;color:#f0f3ff;">
-          <span style="color:${color};text-transform:uppercase;">[${wp.phase || 'FIX'}]</span> ${wp.ident} • FL${Math.round(wp.altFt / 100)}
+          <span style="color:${color};text-transform:uppercase;">[${wp.phase || 'FIX'}]</span> ${wp.ident} • ${altDisplay}
           ${wp.info ? `<div style="font-size:9px;color:#a2b0ba;font-weight:normal;">${wp.info}</div>` : ''}
         </div>`,
         { permanent: false, direction: 'top', className: 'dark-tooltip' }

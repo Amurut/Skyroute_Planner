@@ -171,7 +171,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
                           >
                             {flightPlan.availableSids.map((s) => (
                               <option key={s.name} value={s.name}>
-                                {s.name}
+                                {s.name} — {s.description.slice(0, 36)}
                               </option>
                             ))}
                           </select>
@@ -218,7 +218,7 @@ export const BottomTray: React.FC<BottomTrayProps> = ({ flightPlan, onExport, on
                           >
                             {flightPlan.availableStars.map((s) => (
                               <option key={s.name} value={s.name}>
-                                {s.name}
+                                {s.name} — {s.description.slice(0, 36)}
                               </option>
                             ))}
                           </select>

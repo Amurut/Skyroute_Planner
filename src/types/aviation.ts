@@ -12,7 +12,11 @@ export interface Runway {
   lengthM: number;
   widthFt: number;
   surface: string;
-  ils?: RunwayILS;
+  ils?: RunwayILS | null;
+  thresholdLat?: number;
+  thresholdLon?: number;
+  endLat?: number;
+  endLon?: number;
 }
 
 export interface Airport {
